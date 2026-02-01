@@ -417,23 +417,80 @@ function displayQuote(quote) {
   quoteEl.innerHTML = `"${escapeHtml(quote.text)}"<span class="quote-author">— ${escapeHtml(quote.author)}</span>`;
 }
 
-// Modal functionality
+// Modal functionality with Reader Mode
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle = document.getElementById('modal-title');
 const modalOpen = document.getElementById('modal-open');
-const modalIframe = document.getElementById('modal-iframe');
+const readerLoading = document.getElementById('reader-loading');
+const readerContent = document.getElementById('reader-content');
 
-function openModal(url, title) {
+async function openModal(url, title) {
   modalTitle.textContent = title;
   modalOpen.href = url;
-  modalIframe.src = url;
   modalOverlay.classList.add('active');
   document.body.style.overflow = 'hidden';
+
+  // Show loading, hide content
+  readerLoading.classList.remove('hidden');
+  readerLoading.textContent = 'Loading article...';
+  readerContent.classList.add('hidden');
+  readerContent.innerHTML = '';
+
+  try {
+    // Fetch the article
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch');
+
+    const html = await response.text();
+
+    // Parse with Readability
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Fix relative URLs
+    const baseUrl = new URL(url);
+    doc.querySelectorAll('img[src]').forEach(img => {
+      const src = img.getAttribute('src');
+      if (src && src.startsWith('/')) {
+        img.setAttribute('src', baseUrl.origin + src);
+      }
+    });
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const href = a.getAttribute('href');
+      if (href && href.startsWith('/')) {
+        a.setAttribute('href', baseUrl.origin + href);
+      }
+    });
+
+    const reader = new Readability(doc);
+    const article = reader.parse();
+
+    if (article && article.content) {
+      readerContent.innerHTML = article.content;
+      readerContent.classList.remove('hidden');
+      readerLoading.classList.add('hidden');
+
+      // Make all links open in new tab
+      readerContent.querySelectorAll('a').forEach(a => {
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+      });
+    } else {
+      throw new Error('Could not parse article');
+    }
+  } catch {
+    readerLoading.innerHTML = `
+      <div class="reader-error">
+        <p>Could not load reader view</p>
+        <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open in new tab →</a></p>
+      </div>
+    `;
+  }
 }
 
 function closeModal() {
   modalOverlay.classList.remove('active');
-  modalIframe.src = 'about:blank';
+  readerContent.innerHTML = '';
   document.body.style.overflow = '';
 }
 

@@ -60,11 +60,15 @@
         </div>
       </div>
       <div class="modal-content">
-        <iframe id="modal-iframe" class="modal-iframe" sandbox="allow-same-origin allow-scripts"></iframe>
+        <div id="modal-reader" class="modal-reader">
+          <div id="reader-loading" class="reader-loading">Loading article...</div>
+          <article id="reader-content" class="reader-content"></article>
+        </div>
       </div>
     </div>
   </div>
 
+  <script src="readability.js"></script>
   <script src="newtab.js"></script>
 </body>
 </html>
