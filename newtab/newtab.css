@@ -166,6 +166,33 @@ body::before {
   border-color: rgba(255, 182, 193, 0.3);
 }
 
+/* Nyan cat button */
+.btn-nyan {
+  font-size: 0.65rem;
+  width: auto;
+  padding: 0 8px;
+  text-decoration: none;
+}
+
+.nyan-icon {
+  font-family: monospace;
+  letter-spacing: -1px;
+}
+
+.btn-nyan:hover {
+  background: linear-gradient(90deg,
+    rgba(255, 0, 0, 0.15),
+    rgba(255, 154, 0, 0.15),
+    rgba(208, 222, 33, 0.15),
+    rgba(79, 220, 74, 0.15),
+    rgba(63, 218, 216, 0.15),
+    rgba(28, 127, 238, 0.15),
+    rgba(186, 12, 248, 0.15)
+  );
+  border-color: rgba(255, 154, 0, 0.4);
+  color: #ffcc00;
+}
+
 /* 4-Column Grid */
 .feeds {
   display: grid;
