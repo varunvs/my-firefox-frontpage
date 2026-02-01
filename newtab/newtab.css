@@ -773,6 +773,23 @@ body::before {
   font-style: italic;
 }
 
+/* Streaming cursor */
+#summary-stream::after {
+  content: '▊';
+  animation: blink 0.7s infinite;
+  color: #818cf8;
+  margin-left: 2px;
+}
+
+#summary-stream.done::after {
+  display: none;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
 /* Bookmark button */
 .feed-item-bookmark.active {
   color: #f59e0b;

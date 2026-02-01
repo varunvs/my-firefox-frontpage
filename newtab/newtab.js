@@ -735,18 +735,28 @@ async function openSummary(url, title) {
     const maxChars = 12000;
     const content = article.textContent.substring(0, maxChars);
 
-    // Generate summary using AI
-    const summary = await generateAISummary(content, title, settings);
-
-    // Cache the summary
-    await cacheSummary(url, summary);
-
+    // Set up streaming UI
     summaryContent.innerHTML = `
       <h2>Key Points</h2>
-      <div class="summary-text">${summary}</div>
+      <div class="summary-text" id="summary-stream"></div>
     `;
     summaryContent.classList.remove('hidden');
     summaryLoading.classList.add('hidden');
+
+    const streamContainer = document.getElementById('summary-stream');
+    let fullText = '';
+
+    // Generate summary using AI with streaming
+    await generateAISummaryStreaming(content, title, settings, (chunk) => {
+      fullText += chunk;
+      streamContainer.innerHTML = formatSummaryResponse(fullText);
+    });
+
+    // Mark streaming as complete (removes cursor)
+    streamContainer.classList.add('done');
+
+    // Cache the final summary
+    await cacheSummary(url, formatSummaryResponse(fullText));
 
   } catch (err) {
     summaryLoading.classList.add('hidden');
@@ -760,7 +770,7 @@ async function openSummary(url, title) {
   }
 }
 
-async function generateAISummary(content, title, settings) {
+async function generateAISummaryStreaming(content, title, settings, onChunk) {
   const { anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
 
   // Determine which API to use
@@ -782,14 +792,14 @@ ${content}`;
 
   if (actualProvider === 'anthropic') {
     const model = anthropicModel || 'claude-3-haiku-20240307';
-    return await callAnthropic(prompt, anthropicKey, model);
+    await callAnthropicStreaming(prompt, anthropicKey, model, onChunk);
   } else {
     const model = openaiModel || 'gpt-4o-mini';
-    return await callOpenAI(prompt, openaiKey, model);
+    await callOpenAIStreaming(prompt, openaiKey, model, onChunk);
   }
 }
 
-async function callAnthropic(prompt, apiKey, model) {
+async function callAnthropicStreaming(prompt, apiKey, model, onChunk) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -801,6 +811,7 @@ async function callAnthropic(prompt, apiKey, model) {
     body: JSON.stringify({
       model,
       max_tokens: 1024,
+      stream: true,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -810,11 +821,36 @@ async function callAnthropic(prompt, apiKey, model) {
     throw new Error(error.error?.message || `API error: ${response.status}`);
   }
 
-  const data = await response.json();
-  return formatSummaryResponse(data.content[0].text);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            onChunk(parsed.delta.text);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
 }
 
-async function callOpenAI(prompt, apiKey, model) {
+async function callOpenAIStreaming(prompt, apiKey, model, onChunk) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -824,6 +860,7 @@ async function callOpenAI(prompt, apiKey, model) {
     body: JSON.stringify({
       model,
       max_tokens: 1024,
+      stream: true,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -833,8 +870,34 @@ async function callOpenAI(prompt, apiKey, model) {
     throw new Error(error.error?.message || `API error: ${response.status}`);
   }
 
-  const data = await response.json();
-  return formatSummaryResponse(data.choices[0].message.content);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            onChunk(content);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
 }
 
 function formatSummaryResponse(text) {
