@@ -9,6 +9,8 @@ const CACHE_DURATION = 10 * 60 * 1000;
 const QUOTE_CACHE_DURATION = 60 * 60 * 1000;
 const SUMMARY_CACHE_KEY = 'summaryCache';
 const READ_LINKS_KEY = 'readLinks';
+const READ_HISTORY_KEY = 'readHistory';
+const BOOKMARKS_KEY = 'bookmarks';
 
 const QUOTE_APIS = [
   {
@@ -90,12 +92,16 @@ async function getReadLinks() {
   return new Set(result[READ_LINKS_KEY] || []);
 }
 
-async function markLinkAsRead(url) {
+async function markLinkAsRead(url, title = '') {
   const readLinks = await getReadLinks();
   readLinks.add(url);
   // Keep only the last 1000 links to prevent storage bloat
   const linksArray = [...readLinks].slice(-1000);
   await browser.storage.local.set({ [READ_LINKS_KEY]: linksArray });
+
+  // Also add to history with metadata
+  await addToHistory(url, title);
+
   // Update UI
   document.querySelectorAll(`a.feed-item[href="${CSS.escape(url)}"]`).forEach(el => {
     el.classList.add('read');
@@ -105,6 +111,62 @@ async function markLinkAsRead(url) {
 async function isLinkRead(url) {
   const readLinks = await getReadLinks();
   return readLinks.has(url);
+}
+
+// History tracking (with metadata)
+async function getHistory() {
+  const result = await browser.storage.local.get(READ_HISTORY_KEY);
+  return result[READ_HISTORY_KEY] || [];
+}
+
+async function addToHistory(url, title) {
+  const history = await getHistory();
+  // Check if already exists, update timestamp if so
+  const existingIndex = history.findIndex(h => h.url === url);
+  if (existingIndex !== -1) {
+    history[existingIndex].timestamp = Date.now();
+    history[existingIndex].title = title || history[existingIndex].title;
+  } else {
+    history.push({ url, title, timestamp: Date.now() });
+  }
+  // Keep last 1000 entries, sorted by timestamp
+  const sorted = history.sort((a, b) => b.timestamp - a.timestamp).slice(0, 1000);
+  await browser.storage.local.set({ [READ_HISTORY_KEY]: sorted });
+}
+
+// Bookmarks
+async function getBookmarks() {
+  const result = await browser.storage.local.get(BOOKMARKS_KEY);
+  return result[BOOKMARKS_KEY] || [];
+}
+
+async function isBookmarked(url) {
+  const bookmarks = await getBookmarks();
+  return bookmarks.some(b => b.url === url);
+}
+
+async function toggleBookmark(url, title) {
+  const bookmarks = await getBookmarks();
+  const existingIndex = bookmarks.findIndex(b => b.url === url);
+
+  if (existingIndex !== -1) {
+    // Remove bookmark
+    bookmarks.splice(existingIndex, 1);
+    await browser.storage.local.set({ [BOOKMARKS_KEY]: bookmarks });
+    return false;
+  } else {
+    // Add bookmark
+    bookmarks.unshift({ url, title, timestamp: Date.now() });
+    await browser.storage.local.set({ [BOOKMARKS_KEY]: bookmarks });
+    return true;
+  }
+}
+
+async function updateBookmarkUI(url, isBookmarked) {
+  document.querySelectorAll(`.feed-item-bookmark[data-url="${CSS.escape(url)}"]`).forEach(btn => {
+    btn.classList.toggle('active', isBookmarked);
+    btn.title = isBookmarked ? 'Remove bookmark' : 'Bookmark';
+  });
 }
 
 // Summary caching
@@ -233,7 +295,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-async function renderFeedSection(feed, items, readLinks) {
+async function renderFeedSection(feed, items, readLinks, bookmarkedUrls) {
   const section = document.createElement('article');
   section.className = 'feed-section';
   section.dataset.feedId = feed.id;
@@ -267,6 +329,11 @@ async function renderFeedSection(feed, items, readLinks) {
             </div>
           </a>
           <div class="feed-item-actions">
+            <button class="feed-item-btn feed-item-bookmark${bookmarkedUrls.has(item.link) ? ' active' : ''}" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="${bookmarkedUrls.has(item.link) ? 'Remove bookmark' : 'Bookmark'}">
+              <svg viewBox="0 0 24 24" fill="${bookmarkedUrls.has(item.link) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+            </button>
             <button class="feed-item-btn feed-item-read-btn" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
@@ -292,7 +359,19 @@ async function renderFeedSection(feed, items, readLinks) {
   // Track link clicks
   section.querySelectorAll('.feed-item').forEach(link => {
     link.addEventListener('click', () => {
-      markLinkAsRead(link.href);
+      const title = link.querySelector('.feed-item-title')?.textContent || '';
+      markLinkAsRead(link.href, title);
+    });
+  });
+
+  // Add click handlers for bookmark buttons
+  section.querySelectorAll('.feed-item-bookmark').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const isNowBookmarked = await toggleBookmark(btn.dataset.url, btn.dataset.title);
+      btn.classList.toggle('active', isNowBookmarked);
+      btn.title = isNowBookmarked ? 'Remove bookmark' : 'Bookmark';
+      btn.querySelector('svg').setAttribute('fill', isNowBookmarked ? 'currentColor' : 'none');
     });
   });
 
@@ -300,7 +379,7 @@ async function renderFeedSection(feed, items, readLinks) {
   section.querySelectorAll('.feed-item-read-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      markLinkAsRead(btn.dataset.url);
+      markLinkAsRead(btn.dataset.url, btn.dataset.title);
       openModal(btn.dataset.url, btn.dataset.title);
     });
   });
@@ -309,7 +388,7 @@ async function renderFeedSection(feed, items, readLinks) {
   section.querySelectorAll('.feed-item-summary').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      markLinkAsRead(btn.dataset.url);
+      markLinkAsRead(btn.dataset.url, btn.dataset.title);
       openSummary(btn.dataset.url, btn.dataset.title);
     });
   });
@@ -445,8 +524,10 @@ async function loadFeeds(forceRefresh = false) {
 
   container.innerHTML = '';
 
-  // Load read links for marking
+  // Load read links and bookmarks for marking
   const readLinks = await getReadLinks();
+  const bookmarks = await getBookmarks();
+  const bookmarkedUrls = new Set(bookmarks.map(b => b.url));
 
   const results = await Promise.allSettled(
     feeds.map(async (feed) => {
@@ -458,7 +539,7 @@ async function loadFeeds(forceRefresh = false) {
   for (let index = 0; index < results.length; index++) {
     const result = results[index];
     if (result.status === 'fulfilled') {
-      const section = await renderFeedSection(result.value.feed, result.value.items, readLinks);
+      const section = await renderFeedSection(result.value.feed, result.value.items, readLinks, bookmarkedUrls);
       container.appendChild(section);
     } else {
       container.appendChild(renderError(feeds[index]));
@@ -807,7 +888,184 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal();
     closeSummary();
+    closeHistory();
   }
+});
+
+// History Modal functionality
+const historyOverlay = document.getElementById('history-overlay');
+const historyList = document.getElementById('history-list');
+const historySearch = document.getElementById('history-search');
+const historyDateFrom = document.getElementById('history-date-from');
+const historyDateTo = document.getElementById('history-date-to');
+let currentHistoryTab = 'history';
+
+function formatDateForGroup(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isToday = date.toDateString() === now.toDateString();
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isToday) return 'Today';
+  if (isYesterday) return 'Yesterday';
+
+  const daysDiff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  if (daysDiff < 7) {
+    return date.toLocaleDateString(undefined, { weekday: 'long' });
+  }
+
+  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function formatTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function stripHtml(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
+}
+
+async function renderHistory() {
+  const items = currentHistoryTab === 'history' ? await getHistory() : await getBookmarks();
+  const summaryCache = (await browser.storage.local.get(SUMMARY_CACHE_KEY))[SUMMARY_CACHE_KEY] || {};
+  const bookmarks = await getBookmarks();
+  const bookmarkedUrls = new Set(bookmarks.map(b => b.url));
+
+  // Apply filters
+  const searchQuery = historySearch.value.toLowerCase().trim();
+  const dateFrom = historyDateFrom.value ? new Date(historyDateFrom.value).getTime() : null;
+  const dateTo = historyDateTo.value ? new Date(historyDateTo.value + 'T23:59:59').getTime() : null;
+
+  let filtered = items.filter(item => {
+    if (searchQuery) {
+      const matchesTitle = item.title?.toLowerCase().includes(searchQuery);
+      const matchesUrl = item.url.toLowerCase().includes(searchQuery);
+      const cached = summaryCache[item.url];
+      const matchesSummary = cached?.summary && stripHtml(cached.summary).toLowerCase().includes(searchQuery);
+      if (!matchesTitle && !matchesUrl && !matchesSummary) return false;
+    }
+    if (dateFrom && item.timestamp < dateFrom) return false;
+    if (dateTo && item.timestamp > dateTo) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    historyList.innerHTML = `
+      <div class="history-empty">
+        <div class="history-empty-icon">${currentHistoryTab === 'history' ? '📚' : '🔖'}</div>
+        <p>${searchQuery || dateFrom || dateTo ? 'No matches found' : (currentHistoryTab === 'history' ? 'No history yet' : 'No bookmarks yet')}</p>
+      </div>
+    `;
+    return;
+  }
+
+  // Group by date
+  const groups = {};
+  filtered.forEach(item => {
+    const groupKey = formatDateForGroup(item.timestamp);
+    if (!groups[groupKey]) groups[groupKey] = [];
+    groups[groupKey].push(item);
+  });
+
+  historyList.innerHTML = Object.entries(groups).map(([date, items]) => `
+    <div class="history-date-group">
+      <div class="history-date-header">${date}</div>
+      ${items.map(item => {
+        const cached = summaryCache[item.url];
+        const summaryText = cached?.summary ? stripHtml(cached.summary).substring(0, 200) : '';
+        const isBookmarked = bookmarkedUrls.has(item.url);
+        return `
+          <div class="history-item" data-url="${escapeHtml(item.url)}">
+            <div class="history-item-main">
+              <a href="${escapeHtml(item.url)}" class="history-item-title" target="_blank" rel="noopener noreferrer">
+                ${escapeHtml(item.title || 'Untitled')}
+              </a>
+              <div class="history-item-url">${escapeHtml(item.url)}</div>
+              <div class="history-item-time">${formatTime(item.timestamp)}</div>
+              ${summaryText ? `<div class="history-item-summary">${escapeHtml(summaryText)}${summaryText.length >= 200 ? '...' : ''}</div>` : ''}
+            </div>
+            <div class="history-item-actions">
+              <button class="history-item-btn history-bookmark-btn${isBookmarked ? ' bookmarked' : ''}" data-url="${escapeHtml(item.url)}" data-title="${escapeHtml(item.title || '')}" title="${isBookmarked ? 'Remove bookmark' : 'Add bookmark'}">
+                <svg viewBox="0 0 24 24" fill="${isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                </svg>
+              </button>
+              <button class="history-item-btn history-summary-btn" data-url="${escapeHtml(item.url)}" data-title="${escapeHtml(item.title || '')}" title="View summary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
+                  <path d="M17 4a2 2 0 0 0 0 4"/><path d="M19 2v6"/><path d="M16 5h6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `).join('');
+
+  // Add event listeners
+  historyList.querySelectorAll('.history-bookmark-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const isNowBookmarked = await toggleBookmark(btn.dataset.url, btn.dataset.title);
+      btn.classList.toggle('bookmarked', isNowBookmarked);
+      btn.querySelector('svg').setAttribute('fill', isNowBookmarked ? 'currentColor' : 'none');
+      btn.title = isNowBookmarked ? 'Remove bookmark' : 'Add bookmark';
+      // Re-render if on bookmarks tab and removing
+      if (currentHistoryTab === 'bookmarks' && !isNowBookmarked) {
+        renderHistory();
+      }
+    });
+  });
+
+  historyList.querySelectorAll('.history-summary-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeHistory();
+      openSummary(btn.dataset.url, btn.dataset.title);
+    });
+  });
+}
+
+function openHistory() {
+  historyOverlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+  renderHistory();
+}
+
+function closeHistory() {
+  historyOverlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('history-btn').addEventListener('click', openHistory);
+document.getElementById('history-close').addEventListener('click', closeHistory);
+historyOverlay.addEventListener('click', (e) => {
+  if (e.target === historyOverlay) closeHistory();
+});
+
+// Tab switching
+document.querySelectorAll('.history-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentHistoryTab = tab.dataset.tab;
+    renderHistory();
+  });
+});
+
+// Filters
+historySearch.addEventListener('input', renderHistory);
+historyDateFrom.addEventListener('change', renderHistory);
+historyDateTo.addEventListener('change', renderHistory);
+document.getElementById('history-clear-filters').addEventListener('click', () => {
+  historySearch.value = '';
+  historyDateFrom.value = '';
+  historyDateTo.value = '';
+  renderHistory();
 });
 
 // Event Listeners
