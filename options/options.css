@@ -176,6 +176,12 @@ body {
   color: var(--text-secondary);
 }
 
+.label-hint {
+  font-weight: 400;
+  color: var(--success);
+  font-size: 0.65rem;
+}
+
 .form-group input[type="text"],
 .form-group input[type="url"] {
   padding: 0.5rem 0.75rem;
@@ -289,6 +295,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.provider-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.provider-fields.hidden {
+  display: none;
 }
 
 .form-group.full-width {

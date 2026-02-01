@@ -43,30 +43,56 @@
 
     <section class="section">
       <h2>AI Summary</h2>
-      <p class="section-desc">Configure API keys to enable AI-powered article summaries. At least one key is required.</p>
+      <p class="section-desc">Configure an API key to enable AI-powered article summaries.</p>
       <div class="api-form">
         <div class="form-group full-width">
-          <label for="anthropic-key">Anthropic API Key</label>
-          <input type="password" id="anthropic-key" placeholder="sk-ant-...">
-        </div>
-        <div class="form-group full-width">
-          <label for="anthropic-model">Anthropic Model</label>
-          <input type="text" id="anthropic-model" placeholder="claude-3-haiku-20240307">
-        </div>
-        <div class="form-group full-width">
-          <label for="openai-key">OpenAI API Key</label>
-          <input type="password" id="openai-key" placeholder="sk-...">
-        </div>
-        <div class="form-group full-width">
-          <label for="openai-model">OpenAI Model</label>
-          <input type="text" id="openai-model" placeholder="gpt-4o-mini">
-        </div>
-        <div class="form-group">
-          <label for="ai-provider">Preferred Provider</label>
+          <label for="ai-provider">Provider</label>
           <select id="ai-provider">
+            <option value="groq">Groq (Llama) - Fast & Free</option>
+            <option value="gemini">Google Gemini - Free tier</option>
             <option value="anthropic">Anthropic (Claude)</option>
             <option value="openai">OpenAI (GPT)</option>
           </select>
+        </div>
+        <div id="provider-groq" class="provider-fields">
+          <div class="form-group full-width">
+            <label for="groq-key">API Key <span class="label-hint">(Free tier available)</span></label>
+            <input type="password" id="groq-key" placeholder="gsk_...">
+          </div>
+          <div class="form-group full-width">
+            <label for="groq-model">Model</label>
+            <input type="text" id="groq-model" placeholder="llama-3.3-70b-versatile">
+          </div>
+        </div>
+        <div id="provider-gemini" class="provider-fields hidden">
+          <div class="form-group full-width">
+            <label for="gemini-key">API Key <span class="label-hint">(Free tier available)</span></label>
+            <input type="password" id="gemini-key" placeholder="AIza...">
+          </div>
+          <div class="form-group full-width">
+            <label for="gemini-model">Model</label>
+            <input type="text" id="gemini-model" placeholder="gemini-2.5-flash-lite">
+          </div>
+        </div>
+        <div id="provider-anthropic" class="provider-fields hidden">
+          <div class="form-group full-width">
+            <label for="anthropic-key">API Key</label>
+            <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+          </div>
+          <div class="form-group full-width">
+            <label for="anthropic-model">Model</label>
+            <input type="text" id="anthropic-model" placeholder="claude-haiku-4-5-20251001">
+          </div>
+        </div>
+        <div id="provider-openai" class="provider-fields hidden">
+          <div class="form-group full-width">
+            <label for="openai-key">API Key</label>
+            <input type="password" id="openai-key" placeholder="sk-...">
+          </div>
+          <div class="form-group full-width">
+            <label for="openai-model">Model</label>
+            <input type="text" id="openai-model" placeholder="gpt-4.1-nano">
+          </div>
         </div>
         <button type="button" id="save-api-btn" class="btn btn-primary">Save API Settings</button>
       </div>

@@ -86,11 +86,15 @@ async function decryptString(encrypted) {
 // Save encrypted API settings
 async function saveApiSettingsEncrypted(settings) {
   const encrypted = {
+    groqKey: settings.groqKey ? await encryptString(settings.groqKey) : null,
+    groqModel: settings.groqModel || 'llama-3.3-70b-versatile',
+    geminiKey: settings.geminiKey ? await encryptString(settings.geminiKey) : null,
+    geminiModel: settings.geminiModel || 'gemini-2.5-flash-lite',
     anthropicKey: settings.anthropicKey ? await encryptString(settings.anthropicKey) : null,
-    anthropicModel: settings.anthropicModel || 'claude-3-haiku-20240307',
+    anthropicModel: settings.anthropicModel || 'claude-haiku-4-5-20251001',
     openaiKey: settings.openaiKey ? await encryptString(settings.openaiKey) : null,
-    openaiModel: settings.openaiModel || 'gpt-4o-mini',
-    provider: settings.provider || 'anthropic'
+    openaiModel: settings.openaiModel || 'gpt-4.1-nano',
+    provider: settings.provider || 'groq'
   };
 
   await browser.storage.local.set({ apiSettingsEncrypted: encrypted });
@@ -111,25 +115,37 @@ async function loadApiSettingsEncrypted() {
       await browser.storage.local.remove('apiSettings');
       return {
         ...legacy.apiSettings,
-        anthropicModel: legacy.apiSettings.anthropicModel || 'claude-3-haiku-20240307',
-        openaiModel: legacy.apiSettings.openaiModel || 'gpt-4o-mini'
+        groqKey: legacy.apiSettings.groqKey || '',
+        groqModel: legacy.apiSettings.groqModel || 'llama-3.3-70b-versatile',
+        geminiKey: legacy.apiSettings.geminiKey || '',
+        geminiModel: legacy.apiSettings.geminiModel || 'gemini-2.5-flash-lite',
+        anthropicModel: legacy.apiSettings.anthropicModel || 'claude-haiku-4-5-20251001',
+        openaiModel: legacy.apiSettings.openaiModel || 'gpt-4.1-nano'
       };
     }
     return {
+      groqKey: '',
+      groqModel: 'llama-3.3-70b-versatile',
+      geminiKey: '',
+      geminiModel: 'gemini-2.5-flash-lite',
       anthropicKey: '',
-      anthropicModel: 'claude-3-haiku-20240307',
+      anthropicModel: 'claude-haiku-4-5-20251001',
       openaiKey: '',
-      openaiModel: 'gpt-4o-mini',
-      provider: 'anthropic'
+      openaiModel: 'gpt-4.1-nano',
+      provider: 'groq'
     };
   }
 
   return {
+    groqKey: await decryptString(encrypted.groqKey),
+    groqModel: encrypted.groqModel || 'llama-3.3-70b-versatile',
+    geminiKey: await decryptString(encrypted.geminiKey),
+    geminiModel: encrypted.geminiModel || 'gemini-2.5-flash-lite',
     anthropicKey: await decryptString(encrypted.anthropicKey),
-    anthropicModel: encrypted.anthropicModel || 'claude-3-haiku-20240307',
+    anthropicModel: encrypted.anthropicModel || 'claude-haiku-4-5-20251001',
     openaiKey: await decryptString(encrypted.openaiKey),
-    openaiModel: encrypted.openaiModel || 'gpt-4o-mini',
-    provider: encrypted.provider || 'anthropic'
+    openaiModel: encrypted.openaiModel || 'gpt-4.1-nano',
+    provider: encrypted.provider || 'groq'
   };
 }
 

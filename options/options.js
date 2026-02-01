@@ -186,14 +186,37 @@ document.getElementById('import-file').addEventListener('change', async (e) => {
 // API Settings (encrypted)
 async function loadApiSettings() {
   const settings = await CryptoUtils.loadApiSettingsEncrypted();
+  document.getElementById('groq-key').value = settings.groqKey || '';
+  document.getElementById('groq-model').value = settings.groqModel || 'llama-3.3-70b-versatile';
+  document.getElementById('gemini-key').value = settings.geminiKey || '';
+  document.getElementById('gemini-model').value = settings.geminiModel || 'gemini-2.5-flash-lite';
   document.getElementById('anthropic-key').value = settings.anthropicKey || '';
-  document.getElementById('anthropic-model').value = settings.anthropicModel || 'claude-3-haiku-20240307';
+  document.getElementById('anthropic-model').value = settings.anthropicModel || 'claude-haiku-4-5-20251001';
   document.getElementById('openai-key').value = settings.openaiKey || '';
-  document.getElementById('openai-model').value = settings.openaiModel || 'gpt-4o-mini';
-  document.getElementById('ai-provider').value = settings.provider || 'anthropic';
+  document.getElementById('openai-model').value = settings.openaiModel || 'gpt-4.1-nano';
+  document.getElementById('ai-provider').value = settings.provider || 'groq';
+  updateProviderFields();
 }
 
+function updateProviderFields() {
+  const provider = document.getElementById('ai-provider').value;
+  const providers = ['groq', 'gemini', 'anthropic', 'openai'];
+
+  providers.forEach(p => {
+    const el = document.getElementById(`provider-${p}`);
+    if (el) {
+      el.classList.toggle('hidden', p !== provider);
+    }
+  });
+}
+
+document.getElementById('ai-provider').addEventListener('change', updateProviderFields);
+
 document.getElementById('save-api-btn').addEventListener('click', async () => {
+  const groqKey = document.getElementById('groq-key').value.trim();
+  const groqModel = document.getElementById('groq-model').value;
+  const geminiKey = document.getElementById('gemini-key').value.trim();
+  const geminiModel = document.getElementById('gemini-model').value;
   const anthropicKey = document.getElementById('anthropic-key').value.trim();
   const anthropicModel = document.getElementById('anthropic-model').value;
   const openaiKey = document.getElementById('openai-key').value.trim();
@@ -201,6 +224,10 @@ document.getElementById('save-api-btn').addEventListener('click', async () => {
   const provider = document.getElementById('ai-provider').value;
 
   await CryptoUtils.saveApiSettingsEncrypted({
+    groqKey,
+    groqModel,
+    geminiKey,
+    geminiModel,
     anthropicKey,
     anthropicModel,
     openaiKey,

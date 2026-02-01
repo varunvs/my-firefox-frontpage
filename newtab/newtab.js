@@ -818,15 +818,15 @@ async function openSummary(url, title) {
   }
 
   const settings = await getApiSettings();
-  const { anthropicKey, openaiKey } = settings;
+  const { groqKey, geminiKey, anthropicKey, openaiKey } = settings;
 
   // Check if we have any API key
-  if (!anthropicKey && !openaiKey) {
+  if (!groqKey && !geminiKey && !anthropicKey && !openaiKey) {
     summaryLoading.classList.add('hidden');
     summaryContent.classList.remove('hidden');
     summaryContent.innerHTML = `
       <div class="summary-no-key">
-        <p>No API key configured. Please add an OpenAI or Anthropic API key in settings.</p>
+        <p>No API key configured. Please add an API key in settings.</p>
         <button onclick="browser.runtime.openOptionsPage(); closeSummary();">Open Settings</button>
       </div>
     `;
@@ -892,16 +892,26 @@ async function openSummary(url, title) {
 }
 
 async function generateAISummaryStreaming(content, title, settings, onChunk) {
-  const { anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
+  const { groqKey, groqModel, geminiKey, geminiModel, anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
 
-  // Determine which API to use
-  const useAnthropic = provider === 'anthropic' && anthropicKey;
-  const useOpenAI = provider === 'openai' && openaiKey;
+  // Determine which API to use based on preference and available keys
+  const providerAvailable = {
+    groq: provider === 'groq' && groqKey,
+    gemini: provider === 'gemini' && geminiKey,
+    anthropic: provider === 'anthropic' && anthropicKey,
+    openai: provider === 'openai' && openaiKey
+  };
 
-  // Fallback to whichever key is available
-  const actualProvider = useAnthropic ? 'anthropic' :
-                         useOpenAI ? 'openai' :
-                         anthropicKey ? 'anthropic' : 'openai';
+  // Fallback order: preferred -> groq -> gemini -> anthropic -> openai
+  const actualProvider = providerAvailable[provider] ? provider :
+                         groqKey ? 'groq' :
+                         geminiKey ? 'gemini' :
+                         anthropicKey ? 'anthropic' :
+                         openaiKey ? 'openai' : null;
+
+  if (!actualProvider) {
+    throw new Error('No API key configured');
+  }
 
   const prompt = `Please provide a concise summary of the following article titled "${title}".
 Format your response as:
@@ -911,12 +921,19 @@ Format your response as:
 Article content:
 ${content}`;
 
-  if (actualProvider === 'anthropic') {
-    const model = anthropicModel || 'claude-3-haiku-20240307';
-    await callAnthropicStreaming(prompt, anthropicKey, model, onChunk);
-  } else {
-    const model = openaiModel || 'gpt-4o-mini';
-    await callOpenAIStreaming(prompt, openaiKey, model, onChunk);
+  switch (actualProvider) {
+    case 'groq':
+      await callGroqStreaming(prompt, groqKey, groqModel || 'llama-3.3-70b-versatile', onChunk);
+      break;
+    case 'gemini':
+      await callGeminiStreaming(prompt, geminiKey, geminiModel || 'gemini-2.5-flash-lite', onChunk);
+      break;
+    case 'anthropic':
+      await callAnthropicStreaming(prompt, anthropicKey, anthropicModel || 'claude-haiku-4-5-20251001', onChunk);
+      break;
+    case 'openai':
+      await callOpenAIStreaming(prompt, openaiKey, openaiModel || 'gpt-4.1-nano', onChunk);
+      break;
   }
 }
 
@@ -1021,6 +1038,109 @@ async function callOpenAIStreaming(prompt, apiKey, model, onChunk) {
   }
 }
 
+// Groq API (OpenAI-compatible format)
+async function callGroqStreaming(prompt, apiKey, model, onChunk) {
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      stream: true,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `Groq API error: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) {
+            onChunk(content);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
+}
+
+// Google Gemini API
+async function callGeminiStreaming(prompt, apiKey, model, onChunk) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 1024
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `Gemini API error: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            onChunk(text);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
+}
+
 function formatSummaryResponse(text) {
   // Convert markdown to HTML
   let formatted = escapeHtml(text);
@@ -1103,9 +1223,9 @@ async function sendChatMessage() {
   if (!question || !currentArticleContext.content) return;
 
   const settings = await getApiSettings();
-  const { anthropicKey, openaiKey } = settings;
+  const { groqKey, geminiKey, anthropicKey, openaiKey } = settings;
 
-  if (!anthropicKey && !openaiKey) {
+  if (!groqKey && !geminiKey && !anthropicKey && !openaiKey) {
     alert('Please configure an API key in settings to use chat.');
     return;
   }
@@ -1172,13 +1292,25 @@ async function sendChatMessage() {
 }
 
 async function generateChatResponse(settings, onChunk) {
-  const { anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
+  const { groqKey, groqModel, geminiKey, geminiModel, anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
 
-  const useAnthropic = provider === 'anthropic' && anthropicKey;
-  const useOpenAI = provider === 'openai' && openaiKey;
-  const actualProvider = useAnthropic ? 'anthropic' :
-                         useOpenAI ? 'openai' :
-                         anthropicKey ? 'anthropic' : 'openai';
+  // Determine which API to use based on preference and available keys
+  const providerAvailable = {
+    groq: provider === 'groq' && groqKey,
+    gemini: provider === 'gemini' && geminiKey,
+    anthropic: provider === 'anthropic' && anthropicKey,
+    openai: provider === 'openai' && openaiKey
+  };
+
+  const actualProvider = providerAvailable[provider] ? provider :
+                         groqKey ? 'groq' :
+                         geminiKey ? 'gemini' :
+                         anthropicKey ? 'anthropic' :
+                         openaiKey ? 'openai' : null;
+
+  if (!actualProvider) {
+    throw new Error('No API key configured');
+  }
 
   // Build conversation with article context
   const systemPrompt = `You are a helpful assistant answering questions about an article.
@@ -1190,12 +1322,19 @@ ${currentArticleContext.content}
 
 Answer questions based on the article content. Be concise and helpful. If the answer isn't in the article, say so.`;
 
-  if (actualProvider === 'anthropic') {
-    const model = anthropicModel || 'claude-3-haiku-20240307';
-    await callAnthropicChat(systemPrompt, anthropicKey, model, onChunk);
-  } else {
-    const model = openaiModel || 'gpt-4o-mini';
-    await callOpenAIChat(systemPrompt, openaiKey, model, onChunk);
+  switch (actualProvider) {
+    case 'groq':
+      await callGroqChat(systemPrompt, groqKey, groqModel || 'llama-3.3-70b-versatile', onChunk);
+      break;
+    case 'gemini':
+      await callGeminiChat(systemPrompt, geminiKey, geminiModel || 'gemini-2.5-flash-lite', onChunk);
+      break;
+    case 'anthropic':
+      await callAnthropicChat(systemPrompt, anthropicKey, anthropicModel || 'claude-haiku-4-5-20251001', onChunk);
+      break;
+    case 'openai':
+      await callOpenAIChat(systemPrompt, openaiKey, openaiModel || 'gpt-4.1-nano', onChunk);
+      break;
   }
 }
 
@@ -1250,6 +1389,133 @@ async function callAnthropicChat(systemPrompt, apiKey, model, onChunk) {
           if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
             onChunk(parsed.delta.text);
           }
+        } catch {}
+      }
+    }
+  }
+}
+
+async function callGroqChat(systemPrompt, apiKey, model, onChunk) {
+  // Build messages including chat history (OpenAI-compatible format)
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  for (const msg of currentArticleContext.chatHistory) {
+    messages.push({ role: msg.role, content: msg.content });
+  }
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      stream: true,
+      messages
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onChunk(content);
+        } catch {}
+      }
+    }
+  }
+}
+
+async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
+  // Build contents array with system instruction and chat history
+  const contents = [];
+
+  // Add system prompt as first user message if no history, otherwise prepend to context
+  const systemContext = `System instructions: ${systemPrompt}\n\n`;
+
+  for (let i = 0; i < currentArticleContext.chatHistory.length; i++) {
+    const msg = currentArticleContext.chatHistory[i];
+    const role = msg.role === 'assistant' ? 'model' : 'user';
+    let text = msg.content;
+
+    // Prepend system context to first user message
+    if (i === 0 && role === 'user') {
+      text = systemContext + text;
+    }
+
+    contents.push({
+      role,
+      parts: [{ text }]
+    });
+  }
+
+  // If no history, we shouldn't be here, but handle it gracefully
+  if (contents.length === 0) {
+    contents.push({
+      role: 'user',
+      parts: [{ text: systemContext + 'Hello' }]
+    });
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        generationConfig: { maxOutputTokens: 1024 }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) onChunk(text);
         } catch {}
       }
     }
