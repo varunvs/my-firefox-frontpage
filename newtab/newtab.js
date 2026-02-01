@@ -967,7 +967,7 @@ async function callAnthropicStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1015,7 +1015,7 @@ async function callOpenAIStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1065,7 +1065,7 @@ async function callGroqStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1117,7 +1117,7 @@ async function callGeminiStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1372,7 +1372,7 @@ async function callAnthropicChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1427,7 +1427,7 @@ async function callGroqChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1502,7 +1502,7 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1556,7 +1556,7 @@ async function callOpenAIChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
