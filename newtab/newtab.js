@@ -24,9 +24,13 @@ const HN_FEED_TYPES = {
 // Feed pagination
 const INITIAL_ITEMS_COUNT = 10;
 const LOAD_MORE_COUNT = 10;
-const MAX_FEED_ITEMS = 30;
+const MAX_FEED_ITEMS = 50;
 const feedItemsStore = {}; // Store all items per feed
 const feedDisplayCount = {}; // Track how many items are displayed per feed
+
+// Feed archive settings
+const FEED_ARCHIVE_KEY = 'feedArchive';
+const MAX_ARCHIVE_ITEMS = 200; // Max items to keep per feed
 
 const QUOTE_APIS = [
   {
@@ -238,9 +242,55 @@ async function updateCachedChatHistory(url, chatHistory) {
   }
 }
 
-async function fetchFeed(url) {
+// Archive functions for persistent feed history
+async function getArchivedItems(feedId) {
+  const result = await browser.storage.local.get(FEED_ARCHIVE_KEY);
+  const archive = result[FEED_ARCHIVE_KEY] || {};
+  return archive[feedId] || [];
+}
+
+async function saveArchivedItems(feedId, items) {
+  const result = await browser.storage.local.get(FEED_ARCHIVE_KEY);
+  const archive = result[FEED_ARCHIVE_KEY] || {};
+
+  // Keep only the most recent MAX_ARCHIVE_ITEMS
+  archive[feedId] = items.slice(0, MAX_ARCHIVE_ITEMS);
+  await browser.storage.local.set({ [FEED_ARCHIVE_KEY]: archive });
+}
+
+function mergeAndSortItems(liveItems, archivedItems) {
+  // Create a map of items by link (URL) to deduplicate
+  const itemMap = new Map();
+
+  // Add archived items first
+  archivedItems.forEach(item => {
+    itemMap.set(item.link, item);
+  });
+
+  // Add/update with live items (they take priority for fresh data like points/comments)
+  liveItems.forEach(item => {
+    itemMap.set(item.link, item);
+  });
+
+  // Convert back to array and sort by date (newest first)
+  const merged = Array.from(itemMap.values());
+  merged.sort((a, b) => (b.pubDateRaw || 0) - (a.pubDateRaw || 0));
+
+  return merged;
+}
+
+async function fetchFeed(url, feedId) {
   const cached = await getCachedFeed(url);
-  if (cached) return cached;
+
+  // Get archived items
+  const archivedItems = feedId ? await getArchivedItems(feedId) : [];
+
+  if (cached) {
+    // Merge cached items with archive
+    const merged = mergeAndSortItems(cached, archivedItems);
+    if (feedId) await saveArchivedItems(feedId, merged);
+    return merged;
+  }
 
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${url}`);
@@ -249,10 +299,14 @@ async function fetchFeed(url) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(text, 'application/xml');
 
-  const items = parseFeed(doc, url);
-  await cacheFeed(url, items);
+  const liveItems = parseFeed(doc, url);
+  await cacheFeed(url, liveItems);
 
-  return items;
+  // Merge with archive and save
+  const merged = mergeAndSortItems(liveItems, archivedItems);
+  if (feedId) await saveArchivedItems(feedId, merged);
+
+  return merged;
 }
 
 function parseFeed(doc, feedUrl) {
@@ -272,13 +326,15 @@ function parseFeed(doc, feedUrl) {
     const link = entry.querySelector('link')?.textContent
       || entry.querySelector('link')?.getAttribute('href')
       || '#';
-    const pubDate = entry.querySelector('pubDate, published, updated')?.textContent;
+    const pubDateStr = entry.querySelector('pubDate, published, updated')?.textContent;
+    const pubDateRaw = pubDateStr ? new Date(pubDateStr).getTime() : Date.now();
 
     // Extract additional metadata
     const item = {
       title: title.trim(),
       link: link.trim(),
-      pubDate: formatDate(pubDate),
+      pubDate: formatDate(pubDateStr),
+      pubDateRaw, // Raw timestamp for sorting
       meta: []
     };
 
@@ -713,7 +769,7 @@ async function loadFeeds(forceRefresh = false) {
 
   const results = await Promise.allSettled(
     feeds.map(async (feed) => {
-      const items = await fetchFeed(feed.url);
+      const items = await fetchFeed(feed.url, feed.id);
       return { feed, items };
     })
   );
