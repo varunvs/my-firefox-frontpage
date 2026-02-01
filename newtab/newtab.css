@@ -1170,3 +1170,112 @@ body::before {
 .skip-link:focus {
   top: var(--space-sm);
 }
+
+/* Restore Modal */
+.restore-modal {
+  max-width: 480px;
+  width: 90%;
+}
+
+.restore-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  text-align: center;
+  gap: 1rem;
+}
+
+.restore-icon {
+  color: #818cf8;
+  opacity: 0.8;
+}
+
+.restore-content h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.restore-content p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.restore-hint {
+  background: rgba(129, 140, 248, 0.1);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+}
+
+.restore-hint code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: #a5b4fc;
+}
+
+.restore-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.restore-actions .btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  font-family: inherit;
+}
+
+.restore-actions .btn-primary {
+  background: linear-gradient(135deg, #818cf8, #a78bfa);
+  color: white;
+}
+
+.restore-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #a5b4fc, #c4b5fd);
+  transform: translateY(-1px);
+}
+
+.restore-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+.restore-actions .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.restore-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.restore-remember input[type="checkbox"] {
+  accent-color: #818cf8;
+}
+
+.restore-remember:hover {
+  color: var(--text-secondary);
+}

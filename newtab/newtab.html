@@ -123,6 +123,46 @@
     </div>
   </div>
 
+  <!-- Restore Backup Modal (shown on first run) -->
+  <div id="restore-overlay" class="modal-overlay">
+    <div class="modal restore-modal">
+      <div class="modal-header">
+        <span class="modal-title">Welcome Back</span>
+        <div class="modal-actions">
+          <button id="restore-close" class="modal-btn modal-close" title="Close">×</button>
+        </div>
+      </div>
+      <div class="restore-content">
+        <div class="restore-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <h2>Restore Your Data</h2>
+        <p>It looks like this is a fresh install. If you have a backup file from a previous installation, you can restore it now.</p>
+        <p class="restore-hint">Look for <code>data.json</code> in your Downloads folder (inside your backup folder).</p>
+        <div class="restore-actions">
+          <button id="restore-import-btn" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Import Backup
+          </button>
+          <button id="restore-skip-btn" class="btn btn-secondary">Start Fresh</button>
+        </div>
+        <label class="restore-remember">
+          <input type="checkbox" id="restore-dont-ask">
+          <span>Don't ask again</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="restore-file-input" accept=".json" hidden>
+
   <script src="readability.js"></script>
   <script src="../shared/crypto.js"></script>
   <script src="newtab.js"></script>

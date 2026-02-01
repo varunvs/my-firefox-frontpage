@@ -1192,6 +1192,149 @@ document.getElementById('refresh-btn').addEventListener('click', () => loadFeeds
 document.getElementById('settings-btn').addEventListener('click', () => browser.runtime.openOptionsPage());
 document.getElementById('quote-btn').addEventListener('click', () => loadQuote(true));
 
+// First-run detection and restore functionality
+const FIRST_RUN_KEY = 'hasRunBefore';
+const SKIP_RESTORE_KEY = 'skipRestorePrompt';
+
+async function checkFirstRun() {
+  const result = await browser.storage.local.get([FIRST_RUN_KEY, SKIP_RESTORE_KEY]);
+
+  // Check if user explicitly skipped restore
+  if (result[SKIP_RESTORE_KEY]) {
+    return;
+  }
+
+  // Check if this is first run (no data exists)
+  if (result[FIRST_RUN_KEY]) {
+    return; // Not first run
+  }
+
+  // Check if there's any meaningful data (feeds modified, history, bookmarks)
+  const storage = await browser.storage.local.get(['feeds', 'readHistory', 'bookmarks']);
+  const defaultFeedUrls = DEFAULT_FEEDS.map(f => f.url);
+  const currentFeedUrls = (storage.feeds || []).map(f => f.url);
+
+  // If feeds are different from defaults OR have history/bookmarks, mark as not first run
+  const feedsModified = JSON.stringify(defaultFeedUrls.sort()) !== JSON.stringify(currentFeedUrls.sort());
+  const hasHistory = (storage.readHistory || []).length > 0;
+  const hasBookmarks = (storage.bookmarks || []).length > 0;
+
+  if (feedsModified || hasHistory || hasBookmarks) {
+    await browser.storage.local.set({ [FIRST_RUN_KEY]: true });
+    return;
+  }
+
+  // Show restore prompt
+  showRestorePrompt();
+}
+
+function showRestorePrompt() {
+  const overlay = document.getElementById('restore-overlay');
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRestorePrompt() {
+  const overlay = document.getElementById('restore-overlay');
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+async function handleRestoreImport() {
+  document.getElementById('restore-file-input').click();
+}
+
+async function handleRestoreSkip() {
+  const dontAsk = document.getElementById('restore-dont-ask').checked;
+
+  if (dontAsk) {
+    await browser.storage.local.set({ [SKIP_RESTORE_KEY]: true });
+  }
+
+  await browser.storage.local.set({ [FIRST_RUN_KEY]: true });
+  closeRestorePrompt();
+}
+
+document.getElementById('restore-close').addEventListener('click', closeRestorePrompt);
+document.getElementById('restore-import-btn').addEventListener('click', handleRestoreImport);
+document.getElementById('restore-skip-btn').addEventListener('click', handleRestoreSkip);
+
+document.getElementById('restore-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'restore-overlay') {
+    closeRestorePrompt();
+  }
+});
+
+document.getElementById('restore-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    // Validate backup file
+    if (!data._meta && !data.feeds && !data.bookmarks && !data.readHistory) {
+      throw new Error('Invalid backup file');
+    }
+
+    // Storage keys to restore
+    const STORAGE_KEYS = {
+      feeds: 'feeds',
+      feedOrder: 'feedOrder',
+      bookmarks: 'bookmarks',
+      readHistory: 'readHistory',
+      readLinks: 'readLinks',
+      summaryCache: 'summaryCache',
+      hnFeedType: 'hnFeedType',
+      apiSettingsEncrypted: 'apiSettingsEncrypted'
+    };
+
+    // Import each key if present
+    let counts = [];
+    for (const key of Object.values(STORAGE_KEYS)) {
+      if (data[key] !== undefined) {
+        await browser.storage.local.set({ [key]: data[key] });
+        if (key === 'bookmarks') counts.push(`${data[key].length} bookmarks`);
+        if (key === 'readHistory') counts.push(`${data[key].length} history items`);
+        if (key === 'summaryCache') counts.push(`${Object.keys(data[key]).length} summaries`);
+        if (key === 'feeds') counts.push(`${data[key].length} feeds`);
+      }
+    }
+
+    // Mark as restored
+    await browser.storage.local.set({ [FIRST_RUN_KEY]: true });
+
+    closeRestorePrompt();
+
+    // Reload feeds with new data
+    loadFeeds();
+
+    // Show success message briefly
+    const restoreContent = document.querySelector('.restore-content');
+    if (restoreContent) {
+      restoreContent.innerHTML = `
+        <div class="restore-icon" style="color: #22c55e;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h2>Restored Successfully!</h2>
+        <p>Imported: ${counts.join(', ') || 'data'}</p>
+      `;
+      document.getElementById('restore-overlay').classList.add('active');
+      setTimeout(closeRestorePrompt, 2000);
+    }
+
+  } catch (err) {
+    alert('Failed to import backup: ' + err.message);
+  }
+
+  e.target.value = '';
+});
+
 // Initialize
 loadQuote(true); // Always fetch fresh quote on page load
 loadFeeds();
+checkFirstRun();

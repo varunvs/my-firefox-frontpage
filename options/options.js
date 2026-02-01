@@ -213,13 +213,15 @@ document.getElementById('save-api-btn').addEventListener('click', async () => {
 
 // Auto Backup Settings
 const AUTO_BACKUP_KEY = 'autoBackupSettings';
+const MAX_BACKUP_ROTATIONS = 10;
 
 async function getAutoBackupSettings() {
   const result = await browser.storage.local.get(AUTO_BACKUP_KEY);
   return result[AUTO_BACKUP_KEY] || {
     enabled: false,
     folder: 'firefox-frontpage-backup',
-    lastBackup: null
+    lastBackup: null,
+    backupIndex: 0  // Rotates 1-10
   };
 }
 
@@ -274,8 +276,9 @@ async function performBackup() {
     }
   }
 
+  const timestamp = new Date().toISOString();
   data._meta = {
-    exportedAt: new Date().toISOString(),
+    exportedAt: timestamp,
     version: '1.0',
     auto: true
   };
@@ -285,20 +288,43 @@ async function performBackup() {
   const url = URL.createObjectURL(blob);
 
   try {
-    // Use downloads API to save to specific folder
+    // Calculate next backup index (1-10 rotation)
+    const nextIndex = (settings.backupIndex % MAX_BACKUP_ROTATIONS) + 1;
+    const paddedIndex = String(nextIndex).padStart(2, '0');
+
+    // Create timestamped filename for rotation
+    const dateStr = timestamp.replace(/[:.]/g, '-').slice(0, 19);
+
+    // Download main data.json (always the latest - used for restore)
     await browser.downloads.download({
       url: url,
-      filename: `${folder}/backup.json`,
+      filename: `${folder}/data.json`,
       saveAs: false,
       conflictAction: 'overwrite'
     });
 
-    // Update last backup time
+    // Also create a rotating timestamped backup
+    const rotatingBlob = new Blob([json], { type: 'application/json' });
+    const rotatingUrl = URL.createObjectURL(rotatingBlob);
+
+    try {
+      await browser.downloads.download({
+        url: rotatingUrl,
+        filename: `${folder}/backup-${paddedIndex}-${dateStr}.json`,
+        saveAs: false,
+        conflictAction: 'overwrite'
+      });
+    } finally {
+      URL.revokeObjectURL(rotatingUrl);
+    }
+
+    // Update settings with new backup index and time
     settings.lastBackup = Date.now();
+    settings.backupIndex = nextIndex;
     await saveAutoBackupSettings(settings);
     updateLastBackupTime(settings.lastBackup);
 
-    showMessage('Backup saved', 'success');
+    showMessage(`Backup saved (slot ${nextIndex}/${MAX_BACKUP_ROTATIONS})`, 'success');
   } catch (err) {
     showMessage(`Backup failed: ${err.message}`, 'error');
   } finally {
