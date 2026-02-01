@@ -26,6 +26,7 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   padding: 2rem;
+  overflow-x: hidden;
 }
 
 .container {
@@ -58,6 +59,7 @@ body {
   border-radius: var(--radius);
   padding: 1.25rem;
   margin-bottom: 1rem;
+  overflow-x: hidden;
 }
 
 .section h2 {
@@ -410,6 +412,8 @@ body {
   background: var(--bg-input);
   border-radius: var(--radius);
   margin-top: 0.5rem;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .sync-instructions p {
@@ -443,33 +447,15 @@ body {
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-secondary);
-  overflow-x: auto;
-  white-space: nowrap;
+  overflow-wrap: break-word;
+  word-break: break-all;
+  white-space: pre-wrap;
   font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-  line-height: 1.6;
+  line-height: 1.5;
   user-select: all;
   cursor: text;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
-.code-block code::-webkit-scrollbar {
-  height: 6px;
-}
-
-.code-block code::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.code-block code::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-.code-block code::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
 }
 
 .code-block .folder-name {
