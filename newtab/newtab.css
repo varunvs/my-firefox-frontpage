@@ -143,6 +143,29 @@ body::before {
   outline-offset: 2px;
 }
 
+/* Magic cat button */
+.btn-magic {
+  font-size: 0.7rem;
+  width: auto;
+  padding: 0 8px;
+}
+
+.neko-icon {
+  font-family: monospace;
+  letter-spacing: -1px;
+}
+
+.btn-magic.active {
+  background: rgba(255, 182, 193, 0.2);
+  border-color: rgba(255, 182, 193, 0.4);
+  color: #ffb6c1;
+}
+
+.btn-magic:hover {
+  background: rgba(255, 182, 193, 0.15);
+  border-color: rgba(255, 182, 193, 0.3);
+}
+
 /* 4-Column Grid */
 .feeds {
   display: grid;

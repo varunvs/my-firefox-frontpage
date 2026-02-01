@@ -1965,6 +1965,14 @@ document.getElementById('refresh-btn').addEventListener('click', () => loadFeeds
 document.getElementById('settings-btn').addEventListener('click', () => browser.runtime.openOptionsPage());
 document.getElementById('quote-btn').addEventListener('click', () => loadQuote(true));
 
+// Neko (cat) toggle
+document.getElementById('neko-btn').addEventListener('click', function() {
+  if (window.Oneko) {
+    window.Oneko.toggle('../shared/oneko.gif');
+    this.classList.toggle('active', window.Oneko.isActive());
+  }
+});
+
 // First-run detection and restore functionality
 const FIRST_RUN_KEY = 'hasRunBefore';
 const SKIP_RESTORE_KEY = 'skipRestorePrompt';
