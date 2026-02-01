@@ -1142,38 +1142,20 @@ async function callGeminiStreaming(prompt, apiKey, model, onChunk) {
 }
 
 function formatSummaryResponse(text) {
-  // Convert markdown to HTML
+  // Use marked.js for markdown to HTML conversion
+  if (typeof marked !== 'undefined') {
+    // Configure marked for safe output
+    marked.setOptions({
+      breaks: true,  // Convert \n to <br>
+      gfm: true,     // GitHub Flavored Markdown (tables, etc.)
+    });
+    return marked.parse(text);
+  }
+
+  // Fallback if marked is not loaded
   let formatted = escapeHtml(text);
-
-  // Convert headers
-  formatted = formatted.replace(/^### (.+)$/gm, '<h4>$1</h4>');
-  formatted = formatted.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-  formatted = formatted.replace(/^# (.+)$/gm, '<h3>$1</h3>');
-
-  // Convert bold text
   formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-  // Convert bullet points
-  formatted = formatted.replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>');
-
-  // Wrap consecutive list items in ul
-  formatted = formatted.replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, (match) => {
-    return `<ul class="summary-bullets">${match}</ul>`;
-  });
-
-  // Convert numbered lists
-  formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
-
-  // Clean up extra newlines and wrap remaining text in paragraphs
-  formatted = formatted.split(/\n\n+/).map(p => {
-    p = p.trim();
-    if (!p) return '';
-    if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<li')) return p;
-    // Don't wrap if it's already a block element
-    if (p.includes('<ul') || p.includes('<h3') || p.includes('<h4')) return p;
-    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
-  }).filter(Boolean).join('\n');
-
+  formatted = formatted.replace(/\n/g, '<br>');
   return formatted;
 }
 

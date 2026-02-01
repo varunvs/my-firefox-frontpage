@@ -715,6 +715,81 @@ body::before {
   color: var(--text-primary);
 }
 
+/* Markdown list styles */
+.summary-content .summary-text ul,
+.summary-content .summary-text ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.summary-content .summary-text li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.summary-content .summary-text ul li {
+  list-style-type: disc;
+}
+
+.summary-content .summary-text ol li {
+  list-style-type: decimal;
+}
+
+/* Markdown table styles */
+.summary-content .summary-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.summary-content .summary-text th,
+.summary-content .summary-text td {
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.summary-content .summary-text th {
+  background: rgba(255,255,255,0.05);
+  font-weight: 600;
+}
+
+.summary-content .summary-text tr:nth-child(even) {
+  background: rgba(255,255,255,0.02);
+}
+
+/* Markdown code styles */
+.summary-content .summary-text code {
+  background: rgba(255,255,255,0.1);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.summary-content .summary-text pre {
+  background: rgba(0,0,0,0.3);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.summary-content .summary-text pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Markdown blockquote */
+.summary-content .summary-text blockquote {
+  border-left: 3px solid var(--col-accent, #818cf8);
+  margin: 1rem 0;
+  padding-left: 1rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .summary-content .summary-bullets {
   list-style: none;
   padding: 0;
