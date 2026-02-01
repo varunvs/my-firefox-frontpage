@@ -1638,6 +1638,7 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents,
+        tools: [{ googleSearch: {} }], // Enable web search grounding
         generationConfig: { maxOutputTokens: 1024 }
       })
     }
