@@ -1581,6 +1581,26 @@ summaryOverlay.addEventListener('click', (e) => {
   if (e.target === summaryOverlay) closeSummary();
 });
 
+// Focus chat input when typing in summary overlay
+document.addEventListener('keydown', (e) => {
+  // Check if summary overlay is active and chat input exists
+  if (summaryOverlay.classList.contains('active') && chatInput) {
+    // Ignore if already focused on an input or if modifier keys are pressed
+    if (document.activeElement === chatInput ||
+        document.activeElement.tagName === 'INPUT' ||
+        document.activeElement.tagName === 'TEXTAREA' ||
+        e.ctrlKey || e.metaKey || e.altKey) {
+      return;
+    }
+
+    // Focus on printable characters (single character keys)
+    if (e.key.length === 1 && !e.key.match(/^\s$/)) {
+      chatInput.focus();
+      // The character will be typed naturally since we're just focusing
+    }
+  }
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal();
