@@ -22,8 +22,8 @@ const HN_FEED_TYPES = {
 };
 
 // Feed pagination
-const INITIAL_ITEMS_COUNT = 10;
-const LOAD_MORE_COUNT = 10;
+const INITIAL_ITEMS_COUNT = 30;
+const LOAD_MORE_COUNT = 20;
 const MAX_FEED_ITEMS = 50;
 const feedItemsStore = {}; // Store all items per feed
 const feedDisplayCount = {}; // Track how many items are displayed per feed
