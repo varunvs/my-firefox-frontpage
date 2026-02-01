@@ -1084,7 +1084,8 @@ async function sendChatMessage() {
   const aiBubble = aiMsgEl.querySelector('.chat-bubble');
 
   // Scroll to bottom
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  const modalContent = summaryOverlay.querySelector('.modal-content');
+  modalContent.scrollTop = modalContent.scrollHeight;
 
   // Add to chat history
   currentArticleContext.chatHistory.push({ role: 'user', content: question });
@@ -1096,7 +1097,7 @@ async function sendChatMessage() {
     await generateChatResponse(settings, (chunk) => {
       fullResponse += chunk;
       aiBubble.innerHTML = formatSummaryResponse(fullResponse);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      modalContent.scrollTop = modalContent.scrollHeight;
     });
 
     // Add AI response to history
