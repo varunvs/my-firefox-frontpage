@@ -1196,6 +1196,45 @@ document.getElementById('quote-btn').addEventListener('click', () => loadQuote(t
 const FIRST_RUN_KEY = 'hasRunBefore';
 const SKIP_RESTORE_KEY = 'skipRestorePrompt';
 
+// Merge utilities for reconciling data from multiple sources
+function mergeArrayByUrl(local, incoming, limit = 1000) {
+  const map = new Map();
+  for (const item of local) map.set(item.url, item);
+  for (const item of incoming) {
+    const existing = map.get(item.url);
+    if (!existing || (item.timestamp && item.timestamp > (existing.timestamp || 0))) {
+      map.set(item.url, item);
+    }
+  }
+  return Array.from(map.values())
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
+}
+
+function mergeArrayById(local, incoming) {
+  const map = new Map();
+  for (const item of local) map.set(item.id, item);
+  for (const item of incoming) if (!map.has(item.id)) map.set(item.id, item);
+  return Array.from(map.values());
+}
+
+function mergeSet(local, incoming, limit = 1000) {
+  return Array.from(new Set([...local, ...incoming])).slice(-limit);
+}
+
+function mergeSummaryCache(local, incoming) {
+  const merged = { ...local };
+  for (const [url, entry] of Object.entries(incoming)) {
+    if (!merged[url] || (entry.timestamp && entry.timestamp > (merged[url].timestamp || 0))) {
+      merged[url] = entry;
+    }
+  }
+  const entries = Object.entries(merged)
+    .sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0))
+    .slice(0, 100);
+  return Object.fromEntries(entries);
+}
+
 async function checkFirstRun() {
   const result = await browser.storage.local.get([FIRST_RUN_KEY, SKIP_RESTORE_KEY]);
 
@@ -1278,39 +1317,62 @@ document.getElementById('restore-file-input').addEventListener('change', async (
       throw new Error('Invalid backup file');
     }
 
-    // Storage keys to restore
-    const STORAGE_KEYS = {
-      feeds: 'feeds',
-      feedOrder: 'feedOrder',
-      bookmarks: 'bookmarks',
-      readHistory: 'readHistory',
-      readLinks: 'readLinks',
-      summaryCache: 'summaryCache',
-      hnFeedType: 'hnFeedType',
-      apiSettingsEncrypted: 'apiSettingsEncrypted'
-    };
+    // Get current local data for merging
+    const local = await browser.storage.local.get(null);
+    const counts = [];
 
-    // Import each key if present
-    let counts = [];
-    for (const key of Object.values(STORAGE_KEYS)) {
-      if (data[key] !== undefined) {
-        await browser.storage.local.set({ [key]: data[key] });
-        if (key === 'bookmarks') counts.push(`${data[key].length} bookmarks`);
-        if (key === 'readHistory') counts.push(`${data[key].length} history items`);
-        if (key === 'summaryCache') counts.push(`${Object.keys(data[key]).length} summaries`);
-        if (key === 'feeds') counts.push(`${data[key].length} feeds`);
-      }
+    // Merge bookmarks
+    if (data.bookmarks) {
+      const merged = mergeArrayByUrl(local.bookmarks || [], data.bookmarks);
+      await browser.storage.local.set({ bookmarks: merged });
+      counts.push(`${merged.length} bookmarks`);
+    }
+
+    // Merge history
+    if (data.readHistory) {
+      const merged = mergeArrayByUrl(local.readHistory || [], data.readHistory);
+      await browser.storage.local.set({ readHistory: merged });
+      counts.push(`${merged.length} history`);
+    }
+
+    // Merge read links
+    if (data.readLinks) {
+      const merged = mergeSet(local.readLinks || [], data.readLinks);
+      await browser.storage.local.set({ readLinks: merged });
+    }
+
+    // Merge summary cache
+    if (data.summaryCache) {
+      const merged = mergeSummaryCache(local.summaryCache || {}, data.summaryCache);
+      await browser.storage.local.set({ summaryCache: merged });
+      counts.push(`${Object.keys(merged).length} summaries`);
+    }
+
+    // Merge feeds
+    if (data.feeds) {
+      const merged = mergeArrayById(local.feeds || [], data.feeds);
+      await browser.storage.local.set({ feeds: merged });
+      counts.push(`${merged.length} feeds`);
+    }
+
+    // Simple overwrites for settings (only if not set locally)
+    if (data.feedOrder && !local.feedOrder) {
+      await browser.storage.local.set({ feedOrder: data.feedOrder });
+    }
+    if (data.hnFeedType && !local.hnFeedType) {
+      await browser.storage.local.set({ hnFeedType: data.hnFeedType });
+    }
+    if (data.apiSettingsEncrypted && !local.apiSettingsEncrypted) {
+      await browser.storage.local.set({ apiSettingsEncrypted: data.apiSettingsEncrypted });
     }
 
     // Mark as restored
     await browser.storage.local.set({ [FIRST_RUN_KEY]: true });
 
     closeRestorePrompt();
-
-    // Reload feeds with new data
     loadFeeds();
 
-    // Show success message briefly
+    // Show success message
     const restoreContent = document.querySelector('.restore-content');
     if (restoreContent) {
       restoreContent.innerHTML = `
@@ -1320,8 +1382,8 @@ document.getElementById('restore-file-input').addEventListener('change', async (
             <polyline points="22 4 12 14.01 9 11.01"/>
           </svg>
         </div>
-        <h2>Restored Successfully!</h2>
-        <p>Imported: ${counts.join(', ') || 'data'}</p>
+        <h2>Restored & Merged!</h2>
+        <p>${counts.join(', ') || 'Data restored'}</p>
       `;
       document.getElementById('restore-overlay').classList.add('active');
       setTimeout(closeRestorePrompt, 2000);

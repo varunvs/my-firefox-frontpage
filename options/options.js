@@ -427,6 +427,127 @@ const STORAGE_KEYS = {
   apiSettingsEncrypted: 'apiSettingsEncrypted'
 };
 
+// Merge utilities for reconciling data from multiple sources
+function mergeArrayByUrl(local, incoming, limit = 1000) {
+  // Merge arrays of objects with 'url' field, keeping newer timestamps
+  const map = new Map();
+
+  // Add local items first
+  for (const item of local) {
+    map.set(item.url, item);
+  }
+
+  // Merge incoming items, keeping newer timestamps
+  for (const item of incoming) {
+    const existing = map.get(item.url);
+    if (!existing || (item.timestamp && item.timestamp > (existing.timestamp || 0))) {
+      map.set(item.url, item);
+    }
+  }
+
+  // Convert back to array, sort by timestamp (newest first), limit size
+  return Array.from(map.values())
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
+}
+
+function mergeArrayById(local, incoming) {
+  // Merge arrays of objects with 'id' field (like feeds)
+  const map = new Map();
+
+  for (const item of local) {
+    map.set(item.id, item);
+  }
+
+  for (const item of incoming) {
+    if (!map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function mergeSet(local, incoming, limit = 1000) {
+  // Merge arrays as sets (for readLinks)
+  const set = new Set([...local, ...incoming]);
+  return Array.from(set).slice(-limit);
+}
+
+function mergeSummaryCache(local, incoming) {
+  // Merge summary caches, keeping newer entries
+  const merged = { ...local };
+
+  for (const [url, entry] of Object.entries(incoming)) {
+    if (!merged[url] || (entry.timestamp && entry.timestamp > (merged[url].timestamp || 0))) {
+      merged[url] = entry;
+    }
+  }
+
+  // Limit to 100 entries, keeping newest
+  const entries = Object.entries(merged)
+    .sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0))
+    .slice(0, 100);
+
+  return Object.fromEntries(entries);
+}
+
+async function mergeImportData(incomingData) {
+  // Get current local data
+  const local = await browser.storage.local.get(null);
+  const merged = {};
+  const counts = [];
+
+  // Merge bookmarks
+  if (incomingData.bookmarks) {
+    const localBookmarks = local.bookmarks || [];
+    merged.bookmarks = mergeArrayByUrl(localBookmarks, incomingData.bookmarks);
+    const added = merged.bookmarks.length - localBookmarks.length;
+    counts.push(`${merged.bookmarks.length} bookmarks${added > 0 ? ` (+${added})` : ''}`);
+  }
+
+  // Merge history
+  if (incomingData.readHistory) {
+    const localHistory = local.readHistory || [];
+    merged.readHistory = mergeArrayByUrl(localHistory, incomingData.readHistory);
+    const added = merged.readHistory.length - localHistory.length;
+    counts.push(`${merged.readHistory.length} history${added > 0 ? ` (+${added})` : ''}`);
+  }
+
+  // Merge read links
+  if (incomingData.readLinks) {
+    const localLinks = local.readLinks || [];
+    merged.readLinks = mergeSet(localLinks, incomingData.readLinks);
+  }
+
+  // Merge summary cache
+  if (incomingData.summaryCache) {
+    const localCache = local.summaryCache || {};
+    merged.summaryCache = mergeSummaryCache(localCache, incomingData.summaryCache);
+    counts.push(`${Object.keys(merged.summaryCache).length} summaries`);
+  }
+
+  // Merge feeds (by ID, don't duplicate)
+  if (incomingData.feeds) {
+    const localFeeds = local.feeds || [];
+    merged.feeds = mergeArrayById(localFeeds, incomingData.feeds);
+    counts.push(`${merged.feeds.length} feeds`);
+  }
+
+  // Simple overwrites for non-mergeable data
+  if (incomingData.feedOrder && !local.feedOrder) {
+    merged.feedOrder = incomingData.feedOrder;
+  }
+  if (incomingData.hnFeedType && !local.hnFeedType) {
+    merged.hnFeedType = incomingData.hnFeedType;
+  }
+  if (incomingData.apiSettingsEncrypted && !local.apiSettingsEncrypted) {
+    merged.apiSettingsEncrypted = incomingData.apiSettingsEncrypted;
+  }
+
+  return { merged, counts };
+}
+
 async function updateBackupCounts() {
   const bookmarks = (await browser.storage.local.get('bookmarks')).bookmarks || [];
   const history = (await browser.storage.local.get('readHistory')).readHistory || [];
@@ -491,26 +612,20 @@ document.getElementById('import-all-file').addEventListener('change', async (e) 
       throw new Error('Invalid backup file');
     }
 
-    // Count what we're importing
-    let counts = [];
+    // Merge incoming data with local data
+    const { merged, counts } = await mergeImportData(data);
 
-    // Import each key if present
-    for (const key of Object.values(STORAGE_KEYS)) {
-      if (data[key] !== undefined) {
-        await browser.storage.local.set({ [key]: data[key] });
-        if (key === 'bookmarks') counts.push(`${data[key].length} bookmarks`);
-        if (key === 'readHistory') counts.push(`${data[key].length} history items`);
-        if (key === 'summaryCache') counts.push(`${Object.keys(data[key]).length} summaries`);
-        if (key === 'feeds') counts.push(`${data[key].length} feeds`);
-      }
+    // Save merged data
+    for (const [key, value] of Object.entries(merged)) {
+      await browser.storage.local.set({ [key]: value });
     }
 
     renderFeeds();
     loadApiSettings();
     updateBackupCounts();
-    showMessage(`Imported: ${counts.join(', ')}`, 'success');
+    showMessage(`Merged: ${counts.join(', ')}`, 'success');
   } catch (err) {
-    showMessage('Invalid backup file', 'error');
+    showMessage('Invalid backup file: ' + err.message, 'error');
   }
 
   e.target.value = '';
