@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Firefox Frontpage - Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Feed Settings</h1>
+      <p class="subtitle">Manage your RSS feeds. Each feed uses its brand color.</p>
+    </header>
+
+    <section class="section">
+      <h2>Your Feeds</h2>
+      <div id="feeds-list" class="feeds-list"></div>
+    </section>
+
+    <section class="section">
+      <h2>Add New Feed</h2>
+      <form id="add-form" class="add-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="feed-name">Name</label>
+            <input type="text" id="feed-name" placeholder="e.g., TechCrunch" required>
+          </div>
+          <div class="form-group flex-grow">
+            <label for="feed-url">RSS URL</label>
+            <input type="url" id="feed-url" placeholder="https://example.com/feed.xml" required>
+          </div>
+          <div class="form-group">
+            <label for="feed-color">Color</label>
+            <input type="color" id="feed-color" value="#6366f1">
+          </div>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="section">
+      <h2>Actions</h2>
+      <div class="actions">
+        <button id="reset-btn" class="btn btn-secondary">Reset to Defaults</button>
+        <button id="export-btn" class="btn btn-secondary">Export Feeds</button>
+        <button id="import-btn" class="btn btn-secondary">Import Feeds</button>
+        <input type="file" id="import-file" accept=".json" hidden>
+      </div>
+    </section>
+
+    <div id="message" class="message"></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

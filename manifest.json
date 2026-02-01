@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "My Firefox Frontpage",
+  "version": "1.0.0",
+  "description": "A custom new tab page with RSS news feeds",
+  "homepage_url": "https://github.com/varunvs/my-firefox-frontpage",
+
+  "permissions": [
+    "storage",
+    "<all_urls>"
+  ],
+
+  "chrome_url_overrides": {
+    "newtab": "newtab/newtab.html"
+  },
+
+  "options_ui": {
+    "page": "options/options.html",
+    "browser_style": true
+  },
+
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  }
+}
