@@ -67,6 +67,7 @@ async function getFeeds() {
   return result.feeds || DEFAULT_FEEDS;
 }
 
+// eslint-disable-next-line no-unused-vars
 async function saveFeeds(feeds) {
   await browser.storage.local.set({ feeds });
 }
@@ -126,6 +127,7 @@ async function markLinkAsRead(url, title = '') {
   });
 }
 
+// eslint-disable-next-line no-unused-vars
 async function isLinkRead(url) {
   const readLinks = await getReadLinks();
   return readLinks.has(url);
@@ -158,6 +160,7 @@ async function getBookmarks() {
   return result[BOOKMARKS_KEY] || [];
 }
 
+// eslint-disable-next-line no-unused-vars
 async function isBookmarked(url) {
   const bookmarks = await getBookmarks();
   return bookmarks.some(b => b.url === url);
@@ -180,10 +183,11 @@ async function toggleBookmark(url, title) {
   }
 }
 
-async function updateBookmarkUI(url, isBookmarked) {
+// eslint-disable-next-line no-unused-vars
+async function updateBookmarkUI(url, isNowBookmarked) {
   document.querySelectorAll(`.feed-item-bookmark[data-url="${CSS.escape(url)}"]`).forEach(btn => {
-    btn.classList.toggle('active', isBookmarked);
-    btn.title = isBookmarked ? 'Remove bookmark' : 'Bookmark';
+    btn.classList.toggle('active', isNowBookmarked);
+    btn.title = isNowBookmarked ? 'Remove bookmark' : 'Bookmark';
   });
 }
 
@@ -963,6 +967,7 @@ async function callAnthropicStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -980,9 +985,7 @@ async function callAnthropicStreaming(prompt, apiKey, model, onChunk) {
           if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
             onChunk(parsed.delta.text);
           }
-        } catch {
-          // Ignore parse errors
-        }
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1012,6 +1015,7 @@ async function callOpenAIStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1030,9 +1034,7 @@ async function callOpenAIStreaming(prompt, apiKey, model, onChunk) {
           if (content) {
             onChunk(content);
           }
-        } catch {
-          // Ignore parse errors
-        }
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1063,6 +1065,7 @@ async function callGroqStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1081,9 +1084,7 @@ async function callGroqStreaming(prompt, apiKey, model, onChunk) {
           if (content) {
             onChunk(content);
           }
-        } catch {
-          // Ignore parse errors
-        }
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1116,6 +1117,7 @@ async function callGeminiStreaming(prompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1133,9 +1135,7 @@ async function callGeminiStreaming(prompt, apiKey, model, onChunk) {
           if (text) {
             onChunk(text);
           }
-        } catch {
-          // Ignore parse errors
-        }
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1154,7 +1154,7 @@ function formatSummaryResponse(text) {
   formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
   // Convert bullet points
-  formatted = formatted.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
+  formatted = formatted.replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>');
 
   // Wrap consecutive list items in ul
   formatted = formatted.replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, (match) => {
@@ -1372,6 +1372,7 @@ async function callAnthropicChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1389,7 +1390,7 @@ async function callAnthropicChat(systemPrompt, apiKey, model, onChunk) {
           if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
             onChunk(parsed.delta.text);
           }
-        } catch {}
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1426,6 +1427,7 @@ async function callGroqChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1442,7 +1444,7 @@ async function callGroqChat(systemPrompt, apiKey, model, onChunk) {
           const parsed = JSON.parse(data);
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) onChunk(content);
-        } catch {}
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1500,6 +1502,7 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1516,7 +1519,7 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
           const parsed = JSON.parse(data);
           const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) onChunk(text);
-        } catch {}
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1553,6 +1556,7 @@ async function callOpenAIChat(systemPrompt, apiKey, model, onChunk) {
   const decoder = new TextDecoder();
   let buffer = '';
 
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1569,7 +1573,7 @@ async function callOpenAIChat(systemPrompt, apiKey, model, onChunk) {
           const parsed = JSON.parse(data);
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) onChunk(content);
-        } catch {}
+        } catch { /* ignore parse errors */ }
       }
     }
   }
