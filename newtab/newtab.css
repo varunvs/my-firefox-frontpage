@@ -220,7 +220,7 @@ body::before {
 }
 
 .feed-title {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary);
   flex: 1;
@@ -243,7 +243,7 @@ body::before {
 .hn-feed-select {
   margin-left: auto;
   padding: 0.25rem 0.5rem;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-family: inherit;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--col-border);
@@ -345,7 +345,7 @@ body::before {
 }
 
 .feed-item-title {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 500;
   line-height: 1.4;
   display: -webkit-box;
@@ -358,7 +358,7 @@ body::before {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
   margin-top: 3px;
 }
