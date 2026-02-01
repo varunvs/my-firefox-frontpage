@@ -531,8 +531,7 @@ const summaryLoading = document.getElementById('summary-loading');
 const summaryContent = document.getElementById('summary-content');
 
 async function getApiSettings() {
-  const result = await browser.storage.local.get('apiSettings');
-  return result.apiSettings || {};
+  return await CryptoUtils.loadApiSettingsEncrypted();
 }
 
 async function openSummary(url, title) {

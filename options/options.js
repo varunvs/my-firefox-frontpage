@@ -183,10 +183,9 @@ document.getElementById('import-file').addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
-// API Settings
+// API Settings (encrypted)
 async function loadApiSettings() {
-  const result = await browser.storage.local.get('apiSettings');
-  const settings = result.apiSettings || {};
+  const settings = await CryptoUtils.loadApiSettingsEncrypted();
   document.getElementById('anthropic-key').value = settings.anthropicKey || '';
   document.getElementById('openai-key').value = settings.openaiKey || '';
   document.getElementById('ai-provider').value = settings.provider || 'anthropic';
@@ -197,11 +196,9 @@ document.getElementById('save-api-btn').addEventListener('click', async () => {
   const openaiKey = document.getElementById('openai-key').value.trim();
   const provider = document.getElementById('ai-provider').value;
 
-  await browser.storage.local.set({
-    apiSettings: { anthropicKey, openaiKey, provider }
-  });
+  await CryptoUtils.saveApiSettingsEncrypted({ anthropicKey, openaiKey, provider });
 
-  showMessage('API settings saved', 'success');
+  showMessage('API settings saved (encrypted)', 'success');
 });
 
 renderFeeds();
