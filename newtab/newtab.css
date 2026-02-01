@@ -297,6 +297,19 @@ body::before {
   background: var(--col-hover);
 }
 
+/* Read/visited links */
+.feed-item.read {
+  opacity: 0.5;
+}
+
+.feed-item.read:hover {
+  opacity: 0.75;
+}
+
+.feed-item.read .feed-item-title {
+  color: var(--text-secondary);
+}
+
 .feed-item:focus-visible {
   outline: 2px solid var(--col-accent);
   outline-offset: 1px;
@@ -750,6 +763,14 @@ body::before {
 
 .summary-no-key button:hover {
   background: #a5b4fc;
+}
+
+.summary-cached {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin-top: 2rem;
+  font-style: italic;
 }
 
 /* Loading */

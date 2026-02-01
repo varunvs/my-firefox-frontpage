@@ -7,6 +7,8 @@ const DEFAULT_FEEDS = [
 
 const CACHE_DURATION = 10 * 60 * 1000;
 const QUOTE_CACHE_DURATION = 60 * 60 * 1000;
+const SUMMARY_CACHE_KEY = 'summaryCache';
+const READ_LINKS_KEY = 'readLinks';
 
 const QUOTE_APIS = [
   {
@@ -80,6 +82,51 @@ async function cacheFeed(url, items) {
   await browser.storage.local.set({
     [`cache_${url}`]: { items, timestamp: Date.now() }
   });
+}
+
+// Read links tracking
+async function getReadLinks() {
+  const result = await browser.storage.local.get(READ_LINKS_KEY);
+  return new Set(result[READ_LINKS_KEY] || []);
+}
+
+async function markLinkAsRead(url) {
+  const readLinks = await getReadLinks();
+  readLinks.add(url);
+  // Keep only the last 1000 links to prevent storage bloat
+  const linksArray = [...readLinks].slice(-1000);
+  await browser.storage.local.set({ [READ_LINKS_KEY]: linksArray });
+  // Update UI
+  document.querySelectorAll(`a.feed-item[href="${CSS.escape(url)}"]`).forEach(el => {
+    el.classList.add('read');
+  });
+}
+
+async function isLinkRead(url) {
+  const readLinks = await getReadLinks();
+  return readLinks.has(url);
+}
+
+// Summary caching
+async function getCachedSummary(url) {
+  const result = await browser.storage.local.get(SUMMARY_CACHE_KEY);
+  const cache = result[SUMMARY_CACHE_KEY] || {};
+  return cache[url] || null;
+}
+
+async function cacheSummary(url, summary) {
+  const result = await browser.storage.local.get(SUMMARY_CACHE_KEY);
+  const cache = result[SUMMARY_CACHE_KEY] || {};
+  cache[url] = { summary, timestamp: Date.now() };
+  // Keep only the last 100 summaries to prevent storage bloat
+  const entries = Object.entries(cache);
+  if (entries.length > 100) {
+    entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+    const trimmed = Object.fromEntries(entries.slice(0, 100));
+    await browser.storage.local.set({ [SUMMARY_CACHE_KEY]: trimmed });
+  } else {
+    await browser.storage.local.set({ [SUMMARY_CACHE_KEY]: cache });
+  }
 }
 
 async function fetchFeed(url) {
@@ -186,7 +233,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function renderFeedSection(feed, items) {
+async function renderFeedSection(feed, items, readLinks) {
   const section = document.createElement('article');
   section.className = 'feed-section';
   section.dataset.feedId = feed.id;
@@ -212,7 +259,7 @@ function renderFeedSection(feed, items) {
     <div class="feed-items" role="list">
       ${items.map(item => `
         <div class="feed-item-wrapper" role="listitem">
-          <a href="${escapeHtml(item.link)}" class="feed-item" target="_blank" rel="noopener noreferrer">
+          <a href="${escapeHtml(item.link)}" class="feed-item${readLinks.has(item.link) ? ' read' : ''}" target="_blank" rel="noopener noreferrer">
             <div class="feed-item-title">${escapeHtml(item.title)}</div>
             <div class="feed-item-meta">
               <span class="feed-item-time">${escapeHtml(item.pubDate)}</span>
@@ -220,7 +267,7 @@ function renderFeedSection(feed, items) {
             </div>
           </a>
           <div class="feed-item-actions">
-            <button class="feed-item-btn feed-item-read" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">
+            <button class="feed-item-btn feed-item-read-btn" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
               </svg>
@@ -242,10 +289,18 @@ function renderFeedSection(feed, items) {
     </div>
   `;
 
+  // Track link clicks
+  section.querySelectorAll('.feed-item').forEach(link => {
+    link.addEventListener('click', () => {
+      markLinkAsRead(link.href);
+    });
+  });
+
   // Add click handlers for quick view buttons
-  section.querySelectorAll('.feed-item-read').forEach(btn => {
+  section.querySelectorAll('.feed-item-read-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
+      markLinkAsRead(btn.dataset.url);
       openModal(btn.dataset.url, btn.dataset.title);
     });
   });
@@ -254,6 +309,7 @@ function renderFeedSection(feed, items) {
   section.querySelectorAll('.feed-item-summary').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
+      markLinkAsRead(btn.dataset.url);
       openSummary(btn.dataset.url, btn.dataset.title);
     });
   });
@@ -389,6 +445,9 @@ async function loadFeeds(forceRefresh = false) {
 
   container.innerHTML = '';
 
+  // Load read links for marking
+  const readLinks = await getReadLinks();
+
   const results = await Promise.allSettled(
     feeds.map(async (feed) => {
       const items = await fetchFeed(feed.url);
@@ -396,13 +455,15 @@ async function loadFeeds(forceRefresh = false) {
     })
   );
 
-  results.forEach((result, index) => {
+  for (let index = 0; index < results.length; index++) {
+    const result = results[index];
     if (result.status === 'fulfilled') {
-      container.appendChild(renderFeedSection(result.value.feed, result.value.items));
+      const section = await renderFeedSection(result.value.feed, result.value.items, readLinks);
+      container.appendChild(section);
     } else {
       container.appendChild(renderError(feeds[index]));
     }
-  });
+  }
 }
 
 // Quotes
@@ -544,6 +605,19 @@ async function openSummary(url, title) {
   summaryContent.classList.add('hidden');
   summaryContent.innerHTML = '';
 
+  // Check cache first
+  const cached = await getCachedSummary(url);
+  if (cached) {
+    summaryContent.innerHTML = `
+      <h2>Key Points</h2>
+      <div class="summary-text">${cached.summary}</div>
+      <p class="summary-cached">Cached summary</p>
+    `;
+    summaryContent.classList.remove('hidden');
+    summaryLoading.classList.add('hidden');
+    return;
+  }
+
   const settings = await getApiSettings();
   const { anthropicKey, openaiKey } = settings;
 
@@ -582,6 +656,9 @@ async function openSummary(url, title) {
 
     // Generate summary using AI
     const summary = await generateAISummary(content, title, settings);
+
+    // Cache the summary
+    await cacheSummary(url, summary);
 
     summaryContent.innerHTML = `
       <h2>Key Points</h2>
