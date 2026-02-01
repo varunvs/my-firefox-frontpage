@@ -727,9 +727,40 @@ const summaryTitle = document.getElementById('summary-title');
 const summaryOpen = document.getElementById('summary-open');
 const summaryLoading = document.getElementById('summary-loading');
 const summaryContent = document.getElementById('summary-content');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+
+// Store current article context for chat
+let currentArticleContext = {
+  content: '',
+  title: '',
+  url: '',
+  chatHistory: []
+};
 
 async function getApiSettings() {
   return await CryptoUtils.loadApiSettingsEncrypted();
+}
+
+// Fetch article content for chat (used when summary is cached)
+async function fetchArticleForChat(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return;
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const reader = new Readability(doc);
+    const article = reader.parse();
+
+    if (article?.textContent) {
+      currentArticleContext.content = article.textContent.substring(0, 12000);
+    }
+  } catch {
+    // Silently fail - chat just won't work
+  }
 }
 
 async function openSummary(url, title) {
@@ -741,6 +772,10 @@ async function openSummary(url, title) {
   summaryLoading.classList.remove('hidden');
   summaryContent.classList.add('hidden');
   summaryContent.innerHTML = '';
+  chatMessages.innerHTML = '';
+
+  // Reset article context
+  currentArticleContext = { content: '', title, url, chatHistory: [] };
 
   // Check cache first
   const cached = await getCachedSummary(url);
@@ -752,6 +787,9 @@ async function openSummary(url, title) {
     `;
     summaryContent.classList.remove('hidden');
     summaryLoading.classList.add('hidden');
+
+    // Still fetch article content for chat functionality
+    fetchArticleForChat(url);
     return;
   }
 
@@ -790,6 +828,9 @@ async function openSummary(url, title) {
     // Truncate content to avoid token limits
     const maxChars = 12000;
     const content = article.textContent.substring(0, maxChars);
+
+    // Store content for chat
+    currentArticleContext.content = content;
 
     // Set up streaming UI
     summaryContent.innerHTML = `
@@ -995,10 +1036,228 @@ function formatSummaryResponse(text) {
 function closeSummary() {
   summaryOverlay.classList.remove('active');
   summaryContent.innerHTML = '';
+  chatMessages.innerHTML = '';
+  chatInput.value = '';
+  currentArticleContext = { content: '', title: '', url: '', chatHistory: [] };
   document.body.style.overflow = '';
 }
 
 document.getElementById('summary-close').addEventListener('click', closeSummary);
+
+// Chat functionality
+async function sendChatMessage() {
+  const question = chatInput.value.trim();
+  if (!question || !currentArticleContext.content) return;
+
+  const settings = await getApiSettings();
+  const { anthropicKey, openaiKey } = settings;
+
+  if (!anthropicKey && !openaiKey) {
+    alert('Please configure an API key in settings to use chat.');
+    return;
+  }
+
+  // Disable input while processing
+  chatInput.disabled = true;
+  chatSend.disabled = true;
+  chatInput.value = '';
+
+  // Add user message to chat
+  const userMsgEl = document.createElement('div');
+  userMsgEl.className = 'chat-message chat-message-user';
+  userMsgEl.innerHTML = `
+    <div class="chat-avatar">You</div>
+    <div class="chat-bubble">${escapeHtml(question)}</div>
+  `;
+  chatMessages.appendChild(userMsgEl);
+
+  // Add AI response placeholder with typing indicator
+  const aiMsgEl = document.createElement('div');
+  aiMsgEl.className = 'chat-message chat-message-ai';
+  aiMsgEl.innerHTML = `
+    <div class="chat-avatar">AI</div>
+    <div class="chat-bubble">
+      <div class="chat-typing"><span></span><span></span><span></span></div>
+    </div>
+  `;
+  chatMessages.appendChild(aiMsgEl);
+  const aiBubble = aiMsgEl.querySelector('.chat-bubble');
+
+  // Scroll to bottom
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Add to chat history
+  currentArticleContext.chatHistory.push({ role: 'user', content: question });
+
+  try {
+    let fullResponse = '';
+
+    // Generate response with streaming
+    await generateChatResponse(settings, (chunk) => {
+      fullResponse += chunk;
+      aiBubble.innerHTML = formatSummaryResponse(fullResponse);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+
+    // Add AI response to history
+    currentArticleContext.chatHistory.push({ role: 'assistant', content: fullResponse });
+
+  } catch (err) {
+    aiBubble.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(err.message)}</span>`;
+  }
+
+  // Re-enable input
+  chatInput.disabled = false;
+  chatSend.disabled = false;
+  chatInput.focus();
+}
+
+async function generateChatResponse(settings, onChunk) {
+  const { anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
+
+  const useAnthropic = provider === 'anthropic' && anthropicKey;
+  const useOpenAI = provider === 'openai' && openaiKey;
+  const actualProvider = useAnthropic ? 'anthropic' :
+                         useOpenAI ? 'openai' :
+                         anthropicKey ? 'anthropic' : 'openai';
+
+  // Build conversation with article context
+  const systemPrompt = `You are a helpful assistant answering questions about an article.
+
+Article Title: "${currentArticleContext.title}"
+
+Article Content:
+${currentArticleContext.content}
+
+Answer questions based on the article content. Be concise and helpful. If the answer isn't in the article, say so.`;
+
+  if (actualProvider === 'anthropic') {
+    const model = anthropicModel || 'claude-3-haiku-20240307';
+    await callAnthropicChat(systemPrompt, apiKey, model, onChunk);
+  } else {
+    const model = openaiModel || 'gpt-4o-mini';
+    await callOpenAIChat(systemPrompt, openaiKey, model, onChunk);
+  }
+}
+
+async function callAnthropicChat(systemPrompt, apiKey, model, onChunk) {
+  // Build messages including chat history
+  const messages = [];
+
+  for (const msg of currentArticleContext.chatHistory) {
+    messages.push({ role: msg.role, content: msg.content });
+  }
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      stream: true,
+      system: systemPrompt,
+      messages
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            onChunk(parsed.delta.text);
+          }
+        } catch {}
+      }
+    }
+  }
+}
+
+async function callOpenAIChat(systemPrompt, apiKey, model, onChunk) {
+  // Build messages including chat history
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  for (const msg of currentArticleContext.chatHistory) {
+    messages.push({ role: msg.role, content: msg.content });
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      stream: true,
+      messages
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onChunk(content);
+        } catch {}
+      }
+    }
+  }
+}
+
+// Chat event listeners
+chatSend.addEventListener('click', sendChatMessage);
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChatMessage();
+  }
+});
 summaryOverlay.addEventListener('click', (e) => {
   if (e.target === summaryOverlay) closeSummary();
 });

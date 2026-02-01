@@ -90,8 +90,20 @@
             <div class="summary-spinner"></div>
             <span>Generating summary...</span>
           </div>
-          <article id="summary-content" class="reader-content summary-content"></article>
+          <div id="summary-chat" class="summary-chat">
+            <article id="summary-content" class="reader-content summary-content"></article>
+            <div id="chat-messages" class="chat-messages"></div>
+          </div>
         </div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Ask a question about this article..." autocomplete="off">
+        <button id="chat-send" class="chat-send" title="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
