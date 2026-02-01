@@ -211,5 +211,144 @@ document.getElementById('save-api-btn').addEventListener('click', async () => {
   showMessage('API settings saved (encrypted)', 'success');
 });
 
+// Backup & Restore
+const STORAGE_KEYS = {
+  feeds: 'feeds',
+  feedOrder: 'feedOrder',
+  bookmarks: 'bookmarks',
+  readHistory: 'readHistory',
+  readLinks: 'readLinks',
+  summaryCache: 'summaryCache',
+  hnFeedType: 'hnFeedType',
+  apiSettingsEncrypted: 'apiSettingsEncrypted'
+};
+
+async function updateBackupCounts() {
+  const bookmarks = (await browser.storage.local.get('bookmarks')).bookmarks || [];
+  const history = (await browser.storage.local.get('readHistory')).readHistory || [];
+  const summaries = (await browser.storage.local.get('summaryCache')).summaryCache || {};
+
+  document.getElementById('bookmarks-count').textContent = `${bookmarks.length} bookmarks`;
+  document.getElementById('history-count').textContent = `${history.length} items`;
+  document.getElementById('summaries-count').textContent = `${Object.keys(summaries).length} summaries`;
+}
+
+function downloadJson(data, filename) {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Export All
+document.getElementById('export-all-btn').addEventListener('click', async () => {
+  const data = {};
+
+  // Get all storage data
+  const storage = await browser.storage.local.get(null);
+
+  // Include relevant keys
+  for (const key of Object.values(STORAGE_KEYS)) {
+    if (storage[key] !== undefined) {
+      data[key] = storage[key];
+    }
+  }
+
+  // Add metadata
+  data._meta = {
+    exportedAt: new Date().toISOString(),
+    version: '1.0'
+  };
+
+  const date = new Date().toISOString().split('T')[0];
+  downloadJson(data, `firefox-frontpage-backup-${date}.json`);
+  showMessage('Full backup exported', 'success');
+});
+
+// Import All
+document.getElementById('import-all-btn').addEventListener('click', () => {
+  document.getElementById('import-all-file').click();
+});
+
+document.getElementById('import-all-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    // Validate it's a backup file
+    if (!data._meta && !data.feeds && !data.bookmarks && !data.readHistory) {
+      throw new Error('Invalid backup file');
+    }
+
+    // Count what we're importing
+    let counts = [];
+
+    // Import each key if present
+    for (const key of Object.values(STORAGE_KEYS)) {
+      if (data[key] !== undefined) {
+        await browser.storage.local.set({ [key]: data[key] });
+        if (key === 'bookmarks') counts.push(`${data[key].length} bookmarks`);
+        if (key === 'readHistory') counts.push(`${data[key].length} history items`);
+        if (key === 'summaryCache') counts.push(`${Object.keys(data[key]).length} summaries`);
+        if (key === 'feeds') counts.push(`${data[key].length} feeds`);
+      }
+    }
+
+    renderFeeds();
+    loadApiSettings();
+    updateBackupCounts();
+    showMessage(`Imported: ${counts.join(', ')}`, 'success');
+  } catch (err) {
+    showMessage('Invalid backup file', 'error');
+  }
+
+  e.target.value = '';
+});
+
+// Export Bookmarks Only
+document.getElementById('export-bookmarks-btn').addEventListener('click', async () => {
+  const bookmarks = (await browser.storage.local.get('bookmarks')).bookmarks || [];
+  if (bookmarks.length === 0) {
+    showMessage('No bookmarks to export', 'error');
+    return;
+  }
+  const date = new Date().toISOString().split('T')[0];
+  downloadJson({ bookmarks, _meta: { exportedAt: new Date().toISOString() } }, `bookmarks-${date}.json`);
+  showMessage(`Exported ${bookmarks.length} bookmarks`, 'success');
+});
+
+// Export History Only
+document.getElementById('export-history-btn').addEventListener('click', async () => {
+  const history = (await browser.storage.local.get('readHistory')).readHistory || [];
+  if (history.length === 0) {
+    showMessage('No history to export', 'error');
+    return;
+  }
+  const date = new Date().toISOString().split('T')[0];
+  downloadJson({ readHistory: history, _meta: { exportedAt: new Date().toISOString() } }, `history-${date}.json`);
+  showMessage(`Exported ${history.length} history items`, 'success');
+});
+
+// Export Summaries Only
+document.getElementById('export-summaries-btn').addEventListener('click', async () => {
+  const summaries = (await browser.storage.local.get('summaryCache')).summaryCache || {};
+  const count = Object.keys(summaries).length;
+  if (count === 0) {
+    showMessage('No summaries to export', 'error');
+    return;
+  }
+  const date = new Date().toISOString().split('T')[0];
+  downloadJson({ summaryCache: summaries, _meta: { exportedAt: new Date().toISOString() } }, `summaries-${date}.json`);
+  showMessage(`Exported ${count} summaries`, 'success');
+});
+
 renderFeeds();
 loadApiSettings();
+updateBackupCounts();

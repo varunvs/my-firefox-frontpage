@@ -73,6 +73,51 @@
     </section>
 
     <section class="section">
+      <h2>Backup & Restore</h2>
+      <p class="section-desc">Export your data to restore after reinstall or sync across devices.</p>
+      <div class="backup-options">
+        <div class="backup-item">
+          <div class="backup-info">
+            <span class="backup-label">Full Backup</span>
+            <span class="backup-desc">Feeds, bookmarks, history, summaries, settings</span>
+          </div>
+          <div class="backup-actions">
+            <button id="export-all-btn" class="btn btn-primary">Export All</button>
+            <button id="import-all-btn" class="btn btn-secondary">Import</button>
+          </div>
+        </div>
+        <div class="backup-item">
+          <div class="backup-info">
+            <span class="backup-label">Bookmarks Only</span>
+            <span class="backup-desc" id="bookmarks-count">0 bookmarks</span>
+          </div>
+          <div class="backup-actions">
+            <button id="export-bookmarks-btn" class="btn btn-secondary">Export</button>
+          </div>
+        </div>
+        <div class="backup-item">
+          <div class="backup-info">
+            <span class="backup-label">History Only</span>
+            <span class="backup-desc" id="history-count">0 items</span>
+          </div>
+          <div class="backup-actions">
+            <button id="export-history-btn" class="btn btn-secondary">Export</button>
+          </div>
+        </div>
+        <div class="backup-item">
+          <div class="backup-info">
+            <span class="backup-label">Cached Summaries</span>
+            <span class="backup-desc" id="summaries-count">0 summaries</span>
+          </div>
+          <div class="backup-actions">
+            <button id="export-summaries-btn" class="btn btn-secondary">Export</button>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="import-all-file" accept=".json" hidden>
+    </section>
+
+    <section class="section">
       <h2>Actions</h2>
       <div class="actions">
         <button id="reset-btn" class="btn btn-secondary">Reset to Defaults</button>
