@@ -21,6 +21,13 @@ const HN_FEED_TYPES = {
   show: { url: 'https://hnrss.org/show', label: 'Show HN' },
 };
 
+// Feed pagination
+const INITIAL_ITEMS_COUNT = 10;
+const LOAD_MORE_COUNT = 10;
+const MAX_FEED_ITEMS = 30;
+const feedItemsStore = {}; // Store all items per feed
+const feedDisplayCount = {}; // Track how many items are displayed per feed
+
 const QUOTE_APIS = [
   {
     url: 'https://api.quotable.io/random?maxLength=120',
@@ -259,7 +266,7 @@ function parseFeed(doc, feedUrl) {
   const isHN = feedUrl?.includes('hnrss.org');
 
   entries.forEach((entry, index) => {
-    if (index >= 15) return;
+    if (index >= MAX_FEED_ITEMS) return;
 
     const title = entry.querySelector('title')?.textContent || 'Untitled';
     const link = entry.querySelector('link')?.textContent
@@ -335,11 +342,52 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function renderFeedItem(item, readLinks, bookmarkedUrls, isHN) {
+  return `
+    <div class="feed-item-wrapper" role="listitem">
+      <a href="${escapeHtml(item.link)}" class="feed-item${readLinks.has(item.link) ? ' read' : ''}" target="_blank" rel="noopener noreferrer">
+        <div class="feed-item-title">${escapeHtml(item.title)}</div>
+        <div class="feed-item-meta">
+          <span class="feed-item-time">${escapeHtml(item.pubDate)}</span>
+          ${item.meta?.map(m => `<span class="feed-item-stat">${m.icon} ${escapeHtml(m.value)}</span>`).join('') || ''}
+        </div>
+      </a>
+      <div class="feed-item-actions">
+        <button class="feed-item-btn feed-item-bookmark${bookmarkedUrls.has(item.link) ? ' active' : ''}" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="${bookmarkedUrls.has(item.link) ? 'Remove bookmark' : 'Bookmark'}">
+          <svg viewBox="0 0 24 24" fill="${bookmarkedUrls.has(item.link) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+        <button class="feed-item-btn feed-item-read-btn" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </button>
+        <button class="feed-item-btn feed-item-summary" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="AI Summary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
+            <path d="M17 4a2 2 0 0 0 0 4"/><path d="M19 2v6"/><path d="M16 5h6"/>
+          </svg>
+        </button>
+        ${isHN && item.commentsLink ? `<a href="${escapeHtml(item.commentsLink)}" class="feed-item-btn" target="_blank" rel="noopener noreferrer" title="View comments">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
 async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedType) {
   const section = document.createElement('article');
   section.className = 'feed-section';
   section.dataset.feedId = feed.id;
   section.draggable = true;
+
+  // Store all items and initialize display count
+  feedItemsStore[feed.id] = { items, readLinks, bookmarkedUrls };
+  feedDisplayCount[feed.id] = INITIAL_ITEMS_COUNT;
 
   // Apply brand color as CSS custom properties
   const color = feed.color || '#6366f1';
@@ -356,6 +404,10 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedT
     </select>
   ` : '';
 
+  // Only show initial items
+  const displayItems = items.slice(0, INITIAL_ITEMS_COUNT);
+  const hasMore = items.length > INITIAL_ITEMS_COUNT;
+
   section.innerHTML = `
     <div class="feed-header">
       <span class="drag-handle">
@@ -369,41 +421,9 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedT
       ${hnDropdown}
     </div>
     <div class="feed-items" role="list">
-      ${items.map(item => `
-        <div class="feed-item-wrapper" role="listitem">
-          <a href="${escapeHtml(item.link)}" class="feed-item${readLinks.has(item.link) ? ' read' : ''}" target="_blank" rel="noopener noreferrer">
-            <div class="feed-item-title">${escapeHtml(item.title)}</div>
-            <div class="feed-item-meta">
-              <span class="feed-item-time">${escapeHtml(item.pubDate)}</span>
-              ${item.meta?.map(m => `<span class="feed-item-stat">${m.icon} ${escapeHtml(m.value)}</span>`).join('') || ''}
-            </div>
-          </a>
-          <div class="feed-item-actions">
-            <button class="feed-item-btn feed-item-bookmark${bookmarkedUrls.has(item.link) ? ' active' : ''}" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="${bookmarkedUrls.has(item.link) ? 'Remove bookmark' : 'Bookmark'}">
-              <svg viewBox="0 0 24 24" fill="${bookmarkedUrls.has(item.link) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-              </svg>
-            </button>
-            <button class="feed-item-btn feed-item-read-btn" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-              </svg>
-            </button>
-            <button class="feed-item-btn feed-item-summary" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="AI Summary">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
-                <path d="M17 4a2 2 0 0 0 0 4"/><path d="M19 2v6"/><path d="M16 5h6"/>
-              </svg>
-            </button>
-            ${isHN && item.commentsLink ? `<a href="${escapeHtml(item.commentsLink)}" class="feed-item-btn" target="_blank" rel="noopener noreferrer" title="View comments">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-            </a>` : ''}
-          </div>
-        </div>
-      `).join('')}
+      ${displayItems.map(item => renderFeedItem(item, readLinks, bookmarkedUrls, isHN)).join('')}
     </div>
+    ${hasMore ? `<button class="load-more-btn" data-feed-id="${feed.id}">Load more</button>` : ''}
   `;
 
   // Track link clicks
@@ -458,8 +478,92 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedT
     });
   }
 
+  // Add Load More handler
+  const loadMoreBtn = section.querySelector('.load-more-btn');
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', () => {
+      loadMoreItems(feed.id, section, isHN);
+    });
+  }
+
   setupDragAndDrop(section);
   return section;
+}
+
+function loadMoreItems(feedId, section, isHN) {
+  const store = feedItemsStore[feedId];
+  if (!store) return;
+
+  const { items, readLinks, bookmarkedUrls } = store;
+  const currentCount = feedDisplayCount[feedId];
+  const newCount = Math.min(currentCount + LOAD_MORE_COUNT, items.length);
+
+  // Get items to add
+  const newItems = items.slice(currentCount, newCount);
+  feedDisplayCount[feedId] = newCount;
+
+  // Append new items to the feed
+  const feedItemsContainer = section.querySelector('.feed-items');
+  newItems.forEach(item => {
+    const itemHtml = renderFeedItem(item, readLinks, bookmarkedUrls, isHN);
+    feedItemsContainer.insertAdjacentHTML('beforeend', itemHtml);
+  });
+
+  // Attach event handlers to new items
+  attachFeedItemHandlers(section);
+
+  // Update or hide Load More button
+  const loadMoreBtn = section.querySelector('.load-more-btn');
+  if (loadMoreBtn) {
+    if (newCount >= items.length) {
+      loadMoreBtn.remove();
+    } else {
+      loadMoreBtn.textContent = `Load more (${items.length - newCount} remaining)`;
+    }
+  }
+}
+
+function attachFeedItemHandlers(section) {
+  // Track link clicks
+  section.querySelectorAll('.feed-item:not([data-handler-attached])').forEach(link => {
+    link.dataset.handlerAttached = 'true';
+    link.addEventListener('click', () => {
+      const title = link.querySelector('.feed-item-title')?.textContent || '';
+      markLinkAsRead(link.href, title);
+    });
+  });
+
+  // Add click handlers for bookmark buttons
+  section.querySelectorAll('.feed-item-bookmark:not([data-handler-attached])').forEach(btn => {
+    btn.dataset.handlerAttached = 'true';
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const isNowBookmarked = await toggleBookmark(btn.dataset.url, btn.dataset.title);
+      btn.classList.toggle('active', isNowBookmarked);
+      btn.title = isNowBookmarked ? 'Remove bookmark' : 'Bookmark';
+      btn.querySelector('svg').setAttribute('fill', isNowBookmarked ? 'currentColor' : 'none');
+    });
+  });
+
+  // Add click handlers for quick view buttons
+  section.querySelectorAll('.feed-item-read-btn:not([data-handler-attached])').forEach(btn => {
+    btn.dataset.handlerAttached = 'true';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      markLinkAsRead(btn.dataset.url, btn.dataset.title);
+      openModal(btn.dataset.url, btn.dataset.title);
+    });
+  });
+
+  // Add click handlers for summary buttons
+  section.querySelectorAll('.feed-item-summary:not([data-handler-attached])').forEach(btn => {
+    btn.dataset.handlerAttached = 'true';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      markLinkAsRead(btn.dataset.url, btn.dataset.title);
+      openSummary(btn.dataset.url, btn.dataset.title);
+    });
+  });
 }
 
 function renderError(feed) {

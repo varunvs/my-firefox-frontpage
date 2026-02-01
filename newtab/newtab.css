@@ -302,6 +302,27 @@ body::before {
   scrollbar-color: var(--col-border) transparent;
 }
 
+/* Load More Button */
+.load-more-btn {
+  display: block;
+  width: calc(100% - 1rem);
+  margin: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: 1px dashed var(--col-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+  border-color: var(--col-accent);
+  color: var(--col-accent);
+  background: rgba(129, 140, 248, 0.1);
+}
+
 /* Feed Item */
 .feed-item-wrapper {
   display: flex;
