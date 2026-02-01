@@ -339,6 +339,38 @@ document.getElementById('backup-folder').addEventListener('change', async (e) =>
   const settings = await getAutoBackupSettings();
   settings.folder = e.target.value.trim() || 'firefox-frontpage-backup';
   await saveAutoBackupSettings(settings);
+  updateSyncCommands(settings.folder);
+});
+
+document.getElementById('backup-folder').addEventListener('input', (e) => {
+  const folder = e.target.value.trim() || 'firefox-frontpage-backup';
+  updateSyncCommands(folder);
+});
+
+function updateSyncCommands(folder) {
+  document.querySelectorAll('.folder-name').forEach(el => {
+    el.textContent = folder;
+  });
+}
+
+// Copy button handlers
+document.querySelectorAll('.btn-copy').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const targetId = btn.dataset.target;
+    const codeEl = document.getElementById(targetId);
+    const text = codeEl.textContent;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      const originalText = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 1500);
+    } catch {
+      showMessage('Failed to copy', 'error');
+    }
+  });
 });
 
 document.getElementById('auto-backup-toggle').addEventListener('change', async (e) => {
