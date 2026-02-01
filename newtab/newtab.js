@@ -219,18 +219,42 @@ function renderFeedSection(feed, items) {
               ${item.meta?.map(m => `<span class="feed-item-stat">${m.icon} ${escapeHtml(m.value)}</span>`).join('') || ''}
             </div>
           </a>
-          <button class="feed-item-preview" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">👁</button>
-          ${isHN && item.commentsLink ? `<a href="${escapeHtml(item.commentsLink)}" class="feed-item-comments" target="_blank" rel="noopener noreferrer" title="View comments">💬</a>` : ''}
+          <div class="feed-item-actions">
+            <button class="feed-item-btn feed-item-read" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="Quick view">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+            </button>
+            <button class="feed-item-btn feed-item-summary" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="AI Summary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
+                <path d="M17 4a2 2 0 0 0 0 4"/><path d="M19 2v6"/><path d="M16 5h6"/>
+              </svg>
+            </button>
+            ${isHN && item.commentsLink ? `<a href="${escapeHtml(item.commentsLink)}" class="feed-item-btn" target="_blank" rel="noopener noreferrer" title="View comments">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </a>` : ''}
+          </div>
         </div>
       `).join('')}
     </div>
   `;
 
   // Add click handlers for quick view buttons
-  section.querySelectorAll('.feed-item-preview').forEach(btn => {
+  section.querySelectorAll('.feed-item-read').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       openModal(btn.dataset.url, btn.dataset.title);
+    });
+  });
+
+  // Add click handlers for summary buttons
+  section.querySelectorAll('.feed-item-summary').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openSummary(btn.dataset.url, btn.dataset.title);
     });
   });
 
@@ -498,8 +522,198 @@ document.getElementById('modal-close').addEventListener('click', closeModal);
 modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) closeModal();
 });
+
+// Summary Modal functionality
+const summaryOverlay = document.getElementById('summary-overlay');
+const summaryTitle = document.getElementById('summary-title');
+const summaryOpen = document.getElementById('summary-open');
+const summaryLoading = document.getElementById('summary-loading');
+const summaryContent = document.getElementById('summary-content');
+
+async function getApiSettings() {
+  const result = await browser.storage.local.get('apiSettings');
+  return result.apiSettings || {};
+}
+
+async function openSummary(url, title) {
+  summaryTitle.textContent = `Summary: ${title}`;
+  summaryOpen.href = url;
+  summaryOverlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  summaryLoading.classList.remove('hidden');
+  summaryContent.classList.add('hidden');
+  summaryContent.innerHTML = '';
+
+  const settings = await getApiSettings();
+  const { anthropicKey, openaiKey } = settings;
+
+  // Check if we have any API key
+  if (!anthropicKey && !openaiKey) {
+    summaryLoading.classList.add('hidden');
+    summaryContent.classList.remove('hidden');
+    summaryContent.innerHTML = `
+      <div class="summary-no-key">
+        <p>No API key configured. Please add an OpenAI or Anthropic API key in settings.</p>
+        <button onclick="browser.runtime.openOptionsPage(); closeSummary();">Open Settings</button>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    // First fetch the article content
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch article');
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const reader = new Readability(doc);
+    const article = reader.parse();
+
+    if (!article || !article.textContent) {
+      throw new Error('Could not parse article');
+    }
+
+    // Truncate content to avoid token limits
+    const maxChars = 12000;
+    const content = article.textContent.substring(0, maxChars);
+
+    // Generate summary using AI
+    const summary = await generateAISummary(content, title, settings);
+
+    summaryContent.innerHTML = `
+      <h2>Key Points</h2>
+      <div class="summary-text">${summary}</div>
+    `;
+    summaryContent.classList.remove('hidden');
+    summaryLoading.classList.add('hidden');
+
+  } catch (err) {
+    summaryLoading.classList.add('hidden');
+    summaryContent.classList.remove('hidden');
+    summaryContent.innerHTML = `
+      <div class="summary-error">
+        <p>Could not generate summary: ${escapeHtml(err.message)}</p>
+        <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open article in new tab →</a></p>
+      </div>
+    `;
+  }
+}
+
+async function generateAISummary(content, title, settings) {
+  const { anthropicKey, openaiKey, provider } = settings;
+
+  // Determine which API to use
+  const useAnthropic = provider === 'anthropic' && anthropicKey;
+  const useOpenAI = provider === 'openai' && openaiKey;
+
+  // Fallback to whichever key is available
+  const actualProvider = useAnthropic ? 'anthropic' :
+                         useOpenAI ? 'openai' :
+                         anthropicKey ? 'anthropic' : 'openai';
+
+  const prompt = `Please provide a concise summary of the following article titled "${title}".
+Format your response as:
+1. A 2-3 sentence overview
+2. 3-5 key bullet points
+
+Article content:
+${content}`;
+
+  if (actualProvider === 'anthropic') {
+    return await callAnthropic(prompt, anthropicKey);
+  } else {
+    return await callOpenAI(prompt, openaiKey);
+  }
+}
+
+async function callAnthropic(prompt, apiKey) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return formatSummaryResponse(data.content[0].text);
+}
+
+async function callOpenAI(prompt, apiKey) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return formatSummaryResponse(data.choices[0].message.content);
+}
+
+function formatSummaryResponse(text) {
+  // Convert markdown-style lists to HTML
+  let formatted = escapeHtml(text);
+
+  // Convert bullet points
+  formatted = formatted.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
+  formatted = formatted.replace(/(<li>.*<\/li>\n?)+/gs, '<ul class="summary-bullets">$&</ul>');
+
+  // Convert numbered lists
+  formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+
+  // Convert line breaks to paragraphs
+  formatted = formatted.split('\n\n').map(p => {
+    if (p.includes('<ul') || p.includes('<li')) return p;
+    return `<p>${p}</p>`;
+  }).join('');
+
+  return formatted;
+}
+
+function closeSummary() {
+  summaryOverlay.classList.remove('active');
+  summaryContent.innerHTML = '';
+  document.body.style.overflow = '';
+}
+
+document.getElementById('summary-close').addEventListener('click', closeSummary);
+summaryOverlay.addEventListener('click', (e) => {
+  if (e.target === summaryOverlay) closeSummary();
+});
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') {
+    closeModal();
+    closeSummary();
+  }
 });
 
 // Event Listeners

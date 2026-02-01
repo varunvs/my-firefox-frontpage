@@ -68,6 +68,28 @@
     </div>
   </div>
 
+  <!-- Summary Modal -->
+  <div id="summary-overlay" class="modal-overlay">
+    <div class="modal summary-modal">
+      <div class="modal-header">
+        <span id="summary-title" class="modal-title">AI Summary</span>
+        <div class="modal-actions">
+          <a id="summary-open" href="#" target="_blank" rel="noopener noreferrer" class="modal-btn">Open ↗</a>
+          <button id="summary-close" class="modal-btn modal-close" title="Close">×</button>
+        </div>
+      </div>
+      <div class="modal-content">
+        <div id="summary-reader" class="modal-reader">
+          <div id="summary-loading" class="reader-loading">
+            <div class="summary-spinner"></div>
+            <span>Generating summary...</span>
+          </div>
+          <article id="summary-content" class="reader-content summary-content"></article>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="readability.js"></script>
   <script src="newtab.js"></script>
 </body>

@@ -183,4 +183,26 @@ document.getElementById('import-file').addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
+// API Settings
+async function loadApiSettings() {
+  const result = await browser.storage.local.get('apiSettings');
+  const settings = result.apiSettings || {};
+  document.getElementById('anthropic-key').value = settings.anthropicKey || '';
+  document.getElementById('openai-key').value = settings.openaiKey || '';
+  document.getElementById('ai-provider').value = settings.provider || 'anthropic';
+}
+
+document.getElementById('save-api-btn').addEventListener('click', async () => {
+  const anthropicKey = document.getElementById('anthropic-key').value.trim();
+  const openaiKey = document.getElementById('openai-key').value.trim();
+  const provider = document.getElementById('ai-provider').value;
+
+  await browser.storage.local.set({
+    apiSettings: { anthropicKey, openaiKey, provider }
+  });
+
+  showMessage('API settings saved', 'success');
+});
+
 renderFeeds();
+loadApiSettings();

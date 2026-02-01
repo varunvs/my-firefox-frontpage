@@ -9,7 +9,8 @@ A minimal, beautiful new tab page for Firefox that displays RSS feeds from your 
 - **4-column layout** with independent scrolling per column
 - **Brand-colored columns** - each feed uses its website's brand color
 - **Drag-and-drop reordering** - arrange columns as you like (persists across sessions)
-- **Quick view modal** - preview articles without leaving the page
+- **Quick view modal** - preview articles in reader-friendly format without leaving the page
+- **AI-powered summaries** - get instant summaries using OpenAI or Anthropic APIs
 - **Daily quote/trivia** - refreshes on each new tab
 - **Hacker News integration** - shows points, comments count, and direct link to discussions
 - **Dark glassmorphism UI** - modern 2026 design aesthetics
@@ -93,11 +94,26 @@ Lobsters:      https://lobste.rs/rss
 
 Drag any column by its header (grip icon) and drop it in a new position. Order is saved automatically.
 
-### Quick View
+### Quick View & AI Summary
 
-Hover over any article and click the **👁** button to preview it in a modal. Press `ESC` or click outside to close.
+Hover over any article to reveal action buttons:
+- **📖 Read** - Opens the article in a reader-friendly modal (extracts main content)
+- **✨ Summary** - Generates an AI-powered summary using your configured API
 
-> Note: Some websites block iframe embedding. Use "Open ↗" to view in a new tab.
+Press `ESC` or click outside to close modals.
+
+### AI Summary Setup
+
+1. Go to **Settings** → **AI Summary** section
+2. Enter your API key:
+   - **Anthropic**: Get from [console.anthropic.com](https://console.anthropic.com/)
+   - **OpenAI**: Get from [platform.openai.com](https://platform.openai.com/)
+3. Select your preferred provider
+4. Click **Save API Settings**
+
+The summary feature uses:
+- Anthropic: Claude 3 Haiku (fast, cost-effective)
+- OpenAI: GPT-4o Mini (fast, cost-effective)
 
 ## Project Structure
 

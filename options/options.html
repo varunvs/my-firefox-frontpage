@@ -42,6 +42,29 @@
     </section>
 
     <section class="section">
+      <h2>AI Summary</h2>
+      <p class="section-desc">Configure API keys to enable AI-powered article summaries. At least one key is required.</p>
+      <div class="api-form">
+        <div class="form-group full-width">
+          <label for="anthropic-key">Anthropic API Key</label>
+          <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+        </div>
+        <div class="form-group full-width">
+          <label for="openai-key">OpenAI API Key</label>
+          <input type="password" id="openai-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label for="ai-provider">Preferred Provider</label>
+          <select id="ai-provider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI (GPT)</option>
+          </select>
+        </div>
+        <button type="button" id="save-api-btn" class="btn btn-primary">Save API Settings</button>
+      </div>
+    </section>
+
+    <section class="section">
       <h2>Actions</h2>
       <div class="actions">
         <button id="reset-btn" class="btn btn-secondary">Reset to Defaults</button>
