@@ -239,6 +239,35 @@ body::before {
   box-shadow: 0 0 10px var(--col-glow);
 }
 
+/* HN Feed Type Dropdown */
+.hn-feed-select {
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.65rem;
+  font-family: inherit;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hn-feed-select:hover {
+  border-color: var(--col-accent);
+  color: var(--text-primary);
+}
+
+.hn-feed-select:focus {
+  outline: none;
+  border-color: var(--col-accent);
+}
+
+.hn-feed-select option {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
 /* Scrollable Feed Items */
 .feed-items {
   flex: 1;

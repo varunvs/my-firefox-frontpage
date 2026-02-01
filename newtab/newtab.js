@@ -11,6 +11,15 @@ const SUMMARY_CACHE_KEY = 'summaryCache';
 const READ_LINKS_KEY = 'readLinks';
 const READ_HISTORY_KEY = 'readHistory';
 const BOOKMARKS_KEY = 'bookmarks';
+const HN_FEED_TYPE_KEY = 'hnFeedType';
+
+const HN_FEED_TYPES = {
+  frontpage: { url: 'https://hnrss.org/frontpage', label: 'Front Page' },
+  newest: { url: 'https://hnrss.org/newest', label: 'Latest' },
+  best: { url: 'https://hnrss.org/best', label: 'Best' },
+  ask: { url: 'https://hnrss.org/ask', label: 'Ask HN' },
+  show: { url: 'https://hnrss.org/show', label: 'Show HN' },
+};
 
 const QUOTE_APIS = [
   {
@@ -69,6 +78,15 @@ async function getFeedOrder() {
 
 async function saveFeedOrder(order) {
   await browser.storage.local.set({ feedOrder: order });
+}
+
+async function getHNFeedType() {
+  const result = await browser.storage.local.get(HN_FEED_TYPE_KEY);
+  return result[HN_FEED_TYPE_KEY] || 'frontpage';
+}
+
+async function saveHNFeedType(type) {
+  await browser.storage.local.set({ [HN_FEED_TYPE_KEY]: type });
 }
 
 async function getCachedFeed(url) {
@@ -295,7 +313,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-async function renderFeedSection(feed, items, readLinks, bookmarkedUrls) {
+async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedType) {
   const section = document.createElement('article');
   section.className = 'feed-section';
   section.dataset.feedId = feed.id;
@@ -307,6 +325,15 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls) {
 
   const isHN = feed.url?.includes('hnrss.org');
 
+  // Build HN dropdown if this is a HN feed
+  const hnDropdown = isHN ? `
+    <select class="hn-feed-select" title="Change feed type">
+      ${Object.entries(HN_FEED_TYPES).map(([key, { label }]) =>
+        `<option value="${key}"${key === hnFeedType ? ' selected' : ''}>${label}</option>`
+      ).join('')}
+    </select>
+  ` : '';
+
   section.innerHTML = `
     <div class="feed-header">
       <span class="drag-handle">
@@ -317,6 +344,7 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls) {
         </svg>
       </span>
       <h2 class="feed-title">${escapeHtml(feed.name)}</h2>
+      ${hnDropdown}
     </div>
     <div class="feed-items" role="list">
       ${items.map(item => `
@@ -392,6 +420,21 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls) {
       openSummary(btn.dataset.url, btn.dataset.title);
     });
   });
+
+  // Add HN feed type change handler
+  const hnSelect = section.querySelector('.hn-feed-select');
+  if (hnSelect) {
+    hnSelect.addEventListener('change', async (e) => {
+      const newType = e.target.value;
+      await saveHNFeedType(newType);
+      // Clear HN cache and reload
+      const hnFeedTypes = Object.values(HN_FEED_TYPES);
+      for (const { url } of hnFeedTypes) {
+        await browser.storage.local.remove(`cache_${url}`);
+      }
+      loadFeeds();
+    });
+  }
 
   setupDragAndDrop(section);
   return section;
@@ -498,6 +541,7 @@ async function loadFeeds(forceRefresh = false) {
 
   let feeds = await getFeeds();
   const savedOrder = await getFeedOrder();
+  const hnFeedType = await getHNFeedType();
 
   if (savedOrder) {
     const feedMap = new Map(feeds.map(f => [f.id, f]));
@@ -506,9 +550,21 @@ async function loadFeeds(forceRefresh = false) {
     feeds = [...orderedFeeds, ...remainingFeeds];
   }
 
+  // Apply HN feed type to HN feeds
+  feeds = feeds.map(feed => {
+    if (feed.url?.includes('hnrss.org')) {
+      return { ...feed, url: HN_FEED_TYPES[hnFeedType]?.url || feed.url };
+    }
+    return feed;
+  });
+
   if (forceRefresh) {
     for (const feed of feeds) {
       await browser.storage.local.remove(`cache_${feed.url}`);
+    }
+    // Also clear all HN feed caches when refreshing
+    for (const { url } of Object.values(HN_FEED_TYPES)) {
+      await browser.storage.local.remove(`cache_${url}`);
     }
   }
 
@@ -539,7 +595,7 @@ async function loadFeeds(forceRefresh = false) {
   for (let index = 0; index < results.length; index++) {
     const result = results[index];
     if (result.status === 'fulfilled') {
-      const section = await renderFeedSection(result.value.feed, result.value.items, readLinks, bookmarkedUrls);
+      const section = await renderFeedSection(result.value.feed, result.value.items, readLinks, bookmarkedUrls, hnFeedType);
       container.appendChild(section);
     } else {
       container.appendChild(renderError(feeds[index]));
