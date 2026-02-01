@@ -194,10 +194,18 @@ async function getCachedSummary(url) {
   return cache[url] || null;
 }
 
-async function cacheSummary(url, summary) {
+async function cacheSummary(url, summary, chatHistory = null) {
   const result = await browser.storage.local.get(SUMMARY_CACHE_KEY);
   const cache = result[SUMMARY_CACHE_KEY] || {};
-  cache[url] = { summary, timestamp: Date.now() };
+
+  // Preserve existing chat history if not provided
+  const existing = cache[url] || {};
+  cache[url] = {
+    summary,
+    timestamp: Date.now(),
+    chatHistory: chatHistory !== null ? chatHistory : (existing.chatHistory || [])
+  };
+
   // Keep only the last 100 summaries to prevent storage bloat
   const entries = Object.entries(cache);
   if (entries.length > 100) {
@@ -205,6 +213,16 @@ async function cacheSummary(url, summary) {
     const trimmed = Object.fromEntries(entries.slice(0, 100));
     await browser.storage.local.set({ [SUMMARY_CACHE_KEY]: trimmed });
   } else {
+    await browser.storage.local.set({ [SUMMARY_CACHE_KEY]: cache });
+  }
+}
+
+async function updateCachedChatHistory(url, chatHistory) {
+  const result = await browser.storage.local.get(SUMMARY_CACHE_KEY);
+  const cache = result[SUMMARY_CACHE_KEY] || {};
+  if (cache[url]) {
+    cache[url].chatHistory = chatHistory;
+    cache[url].timestamp = Date.now();
     await browser.storage.local.set({ [SUMMARY_CACHE_KEY]: cache });
   }
 }
@@ -788,6 +806,12 @@ async function openSummary(url, title) {
     summaryContent.classList.remove('hidden');
     summaryLoading.classList.add('hidden');
 
+    // Load cached chat history
+    if (cached.chatHistory && cached.chatHistory.length > 0) {
+      currentArticleContext.chatHistory = [...cached.chatHistory];
+      renderChatHistory(cached.chatHistory);
+    }
+
     // Still fetch article content for chat functionality
     fetchArticleForChat(url);
     return;
@@ -1044,6 +1068,35 @@ function closeSummary() {
 
 document.getElementById('summary-close').addEventListener('click', closeSummary);
 
+// Render saved chat history
+function renderChatHistory(history) {
+  chatMessages.innerHTML = '';
+  for (let i = 0; i < history.length; i += 2) {
+    const userMsg = history[i];
+    const aiMsg = history[i + 1];
+
+    if (userMsg && userMsg.role === 'user') {
+      const userMsgEl = document.createElement('div');
+      userMsgEl.className = 'chat-message chat-message-user';
+      userMsgEl.innerHTML = `
+        <div class="chat-avatar">You</div>
+        <div class="chat-bubble">${escapeHtml(userMsg.content)}</div>
+      `;
+      chatMessages.appendChild(userMsgEl);
+    }
+
+    if (aiMsg && aiMsg.role === 'assistant') {
+      const aiMsgEl = document.createElement('div');
+      aiMsgEl.className = 'chat-message chat-message-ai';
+      aiMsgEl.innerHTML = `
+        <div class="chat-avatar">AI</div>
+        <div class="chat-bubble">${formatSummaryResponse(aiMsg.content)}</div>
+      `;
+      chatMessages.appendChild(aiMsgEl);
+    }
+  }
+}
+
 // Chat functionality
 async function sendChatMessage() {
   const question = chatInput.value.trim();
@@ -1103,8 +1156,13 @@ async function sendChatMessage() {
     // Add AI response to history
     currentArticleContext.chatHistory.push({ role: 'assistant', content: fullResponse });
 
+    // Save chat history to cache
+    await updateCachedChatHistory(currentArticleContext.url, currentArticleContext.chatHistory);
+
   } catch (err) {
     aiBubble.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(err.message)}</span>`;
+    // Remove the failed user message from history
+    currentArticleContext.chatHistory.pop();
   }
 
   // Re-enable input
