@@ -1133,7 +1133,7 @@ Answer questions based on the article content. Be concise and helpful. If the an
 
   if (actualProvider === 'anthropic') {
     const model = anthropicModel || 'claude-3-haiku-20240307';
-    await callAnthropicChat(systemPrompt, apiKey, model, onChunk);
+    await callAnthropicChat(systemPrompt, anthropicKey, model, onChunk);
   } else {
     const model = openaiModel || 'gpt-4o-mini';
     await callOpenAIChat(systemPrompt, openaiKey, model, onChunk);
