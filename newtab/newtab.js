@@ -917,10 +917,18 @@ async function generateAISummaryStreaming(content, title, settings, onChunk) {
     throw new Error('No API key configured');
   }
 
-  const prompt = `Please provide a concise summary of the following article titled "${title}".
-Format your response as:
-1. A 2-3 sentence overview
-2. 3-5 key bullet points
+  const prompt = `Summarize the following article titled "${title}".
+
+Guidelines:
+- Use simple, clear English
+- Use bullet points for key takeaways
+- Use tables to compare data, features, or options if applicable
+- Keep it concise and scannable
+
+Format:
+1. **Overview**: 2-3 sentence summary
+2. **Key Points**: Bullet points of main takeaways
+3. **Tags**: 3-5 relevant topic tags at the end (e.g., #AI #Startup #Funding)
 
 Article content:
 ${content}`;
