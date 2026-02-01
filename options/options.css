@@ -451,6 +451,25 @@ body {
   line-height: 1.6;
   user-select: all;
   cursor: text;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.code-block code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.code-block code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-block code::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.code-block code::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .code-block .folder-name {
