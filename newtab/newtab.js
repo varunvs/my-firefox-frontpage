@@ -1463,14 +1463,18 @@ async function generateChatResponse(settings, onChunk) {
   }
 
   // Build conversation with article context
-  const systemPrompt = `You are a helpful assistant answering questions about an article.
+  const systemPrompt = `You are a helpful assistant. The user is reading an article and may ask questions about it or related topics.
 
 Article Title: "${currentArticleContext.title}"
 
 Article Content:
 ${currentArticleContext.content}
 
-Answer questions based on the article content. Be concise and helpful. If the answer isn't in the article, say so.`;
+Guidelines:
+- Answer questions about the article using the content above
+- For questions beyond the article, use your knowledge or search the web if available
+- Be concise and helpful
+- Clearly indicate when information comes from outside the article`;
 
   switch (actualProvider) {
     case 'groq':
