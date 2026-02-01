@@ -426,11 +426,12 @@ body {
 
 .code-block {
   margin-bottom: 0.75rem;
-  position: relative;
 }
 
 .code-block strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 0.75rem;
   color: var(--text-primary);
   margin-bottom: 0.25rem;
@@ -438,8 +439,7 @@ body {
 
 .code-block code {
   display: block;
-  padding: 0.5rem 0.75rem;
-  padding-right: 4rem;
+  padding: 0.6rem 0.75rem;
   background: var(--bg-base);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -448,6 +448,9 @@ body {
   overflow-x: auto;
   white-space: nowrap;
   font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  line-height: 1.6;
+  user-select: all;
+  cursor: text;
 }
 
 .code-block .folder-name {
@@ -455,23 +458,27 @@ body {
 }
 
 .btn-copy {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  padding: 0.25rem 0.5rem;
+  padding: 0.3rem 0.5rem;
   font-size: 0.65rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  font-weight: 500;
+  background: var(--accent);
+  border: none;
   border-radius: 4px;
-  color: var(--text-secondary);
+  color: white;
   cursor: pointer;
   transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .btn-copy:hover {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
+  background: var(--accent-hover);
+}
+
+.btn-copy.copied {
+  background: var(--success);
 }
 
 /* Backup Section */

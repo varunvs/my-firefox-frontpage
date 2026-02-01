@@ -98,19 +98,43 @@
           <div class="sync-instructions">
             <p>Create a symlink to sync backups with cloud storage:</p>
             <div class="code-block">
-              <strong>iCloud (macOS):</strong>
+              <strong>
+                <span>iCloud (macOS):</span>
+                <button class="btn-copy" data-target="icloud-cmd" title="Copy to clipboard">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </strong>
               <code id="icloud-cmd">mkdir -p ~/Library/Mobile\ Documents/com~apple~CloudDocs/<span class="folder-name">firefox-frontpage-backup</span> && ln -sf ~/Library/Mobile\ Documents/com~apple~CloudDocs/<span class="folder-name">firefox-frontpage-backup</span> ~/Downloads/<span class="folder-name">firefox-frontpage-backup</span></code>
-              <button class="btn-copy" data-target="icloud-cmd" title="Copy">Copy</button>
             </div>
             <div class="code-block">
-              <strong>Dropbox:</strong>
+              <strong>
+                <span>Dropbox:</span>
+                <button class="btn-copy" data-target="dropbox-cmd" title="Copy to clipboard">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </strong>
               <code id="dropbox-cmd">mkdir -p ~/Dropbox/<span class="folder-name">firefox-frontpage-backup</span> && ln -sf ~/Dropbox/<span class="folder-name">firefox-frontpage-backup</span> ~/Downloads/<span class="folder-name">firefox-frontpage-backup</span></code>
-              <button class="btn-copy" data-target="dropbox-cmd" title="Copy">Copy</button>
             </div>
             <div class="code-block">
-              <strong>Google Drive:</strong>
+              <strong>
+                <span>Google Drive:</span>
+                <button class="btn-copy" data-target="gdrive-cmd" title="Copy to clipboard">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copy
+                </button>
+              </strong>
               <code id="gdrive-cmd">mkdir -p ~/Google\ Drive/My\ Drive/<span class="folder-name">firefox-frontpage-backup</span> && ln -sf ~/Google\ Drive/My\ Drive/<span class="folder-name">firefox-frontpage-backup</span> ~/Downloads/<span class="folder-name">firefox-frontpage-backup</span></code>
-              <button class="btn-copy" data-target="gdrive-cmd" title="Copy">Copy</button>
             </div>
             <p class="sync-note">Run the command once in Terminal, then enable Auto Backup above.</p>
           </div>
