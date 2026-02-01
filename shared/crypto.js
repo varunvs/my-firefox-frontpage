@@ -87,8 +87,10 @@ async function decryptString(encrypted) {
 async function saveApiSettingsEncrypted(settings) {
   const encrypted = {
     anthropicKey: settings.anthropicKey ? await encryptString(settings.anthropicKey) : null,
+    anthropicModel: settings.anthropicModel || 'claude-3-haiku-20240307',
     openaiKey: settings.openaiKey ? await encryptString(settings.openaiKey) : null,
-    provider: settings.provider // Provider preference doesn't need encryption
+    openaiModel: settings.openaiModel || 'gpt-4o-mini',
+    provider: settings.provider || 'anthropic'
   };
 
   await browser.storage.local.set({ apiSettingsEncrypted: encrypted });
@@ -107,14 +109,26 @@ async function loadApiSettingsEncrypted() {
       await saveApiSettingsEncrypted(legacy.apiSettings);
       // Remove old unencrypted settings
       await browser.storage.local.remove('apiSettings');
-      return legacy.apiSettings;
+      return {
+        ...legacy.apiSettings,
+        anthropicModel: legacy.apiSettings.anthropicModel || 'claude-3-haiku-20240307',
+        openaiModel: legacy.apiSettings.openaiModel || 'gpt-4o-mini'
+      };
     }
-    return { anthropicKey: '', openaiKey: '', provider: 'anthropic' };
+    return {
+      anthropicKey: '',
+      anthropicModel: 'claude-3-haiku-20240307',
+      openaiKey: '',
+      openaiModel: 'gpt-4o-mini',
+      provider: 'anthropic'
+    };
   }
 
   return {
     anthropicKey: await decryptString(encrypted.anthropicKey),
+    anthropicModel: encrypted.anthropicModel || 'claude-3-haiku-20240307',
     openaiKey: await decryptString(encrypted.openaiKey),
+    openaiModel: encrypted.openaiModel || 'gpt-4o-mini',
     provider: encrypted.provider || 'anthropic'
   };
 }

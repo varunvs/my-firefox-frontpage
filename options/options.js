@@ -187,16 +187,26 @@ document.getElementById('import-file').addEventListener('change', async (e) => {
 async function loadApiSettings() {
   const settings = await CryptoUtils.loadApiSettingsEncrypted();
   document.getElementById('anthropic-key').value = settings.anthropicKey || '';
+  document.getElementById('anthropic-model').value = settings.anthropicModel || 'claude-3-haiku-20240307';
   document.getElementById('openai-key').value = settings.openaiKey || '';
+  document.getElementById('openai-model').value = settings.openaiModel || 'gpt-4o-mini';
   document.getElementById('ai-provider').value = settings.provider || 'anthropic';
 }
 
 document.getElementById('save-api-btn').addEventListener('click', async () => {
   const anthropicKey = document.getElementById('anthropic-key').value.trim();
+  const anthropicModel = document.getElementById('anthropic-model').value;
   const openaiKey = document.getElementById('openai-key').value.trim();
+  const openaiModel = document.getElementById('openai-model').value;
   const provider = document.getElementById('ai-provider').value;
 
-  await CryptoUtils.saveApiSettingsEncrypted({ anthropicKey, openaiKey, provider });
+  await CryptoUtils.saveApiSettingsEncrypted({
+    anthropicKey,
+    anthropicModel,
+    openaiKey,
+    openaiModel,
+    provider
+  });
 
   showMessage('API settings saved (encrypted)', 'success');
 });

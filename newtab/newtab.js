@@ -603,7 +603,7 @@ async function openSummary(url, title) {
 }
 
 async function generateAISummary(content, title, settings) {
-  const { anthropicKey, openaiKey, provider } = settings;
+  const { anthropicKey, anthropicModel, openaiKey, openaiModel, provider } = settings;
 
   // Determine which API to use
   const useAnthropic = provider === 'anthropic' && anthropicKey;
@@ -623,13 +623,15 @@ Article content:
 ${content}`;
 
   if (actualProvider === 'anthropic') {
-    return await callAnthropic(prompt, anthropicKey);
+    const model = anthropicModel || 'claude-3-haiku-20240307';
+    return await callAnthropic(prompt, anthropicKey, model);
   } else {
-    return await callOpenAI(prompt, openaiKey);
+    const model = openaiModel || 'gpt-4o-mini';
+    return await callOpenAI(prompt, openaiKey, model);
   }
 }
 
-async function callAnthropic(prompt, apiKey) {
+async function callAnthropic(prompt, apiKey, model) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -639,7 +641,7 @@ async function callAnthropic(prompt, apiKey) {
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: 'claude-3-haiku-20240307',
+      model,
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -654,7 +656,7 @@ async function callAnthropic(prompt, apiKey) {
   return formatSummaryResponse(data.content[0].text);
 }
 
-async function callOpenAI(prompt, apiKey) {
+async function callOpenAI(prompt, apiKey, model) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -662,7 +664,7 @@ async function callOpenAI(prompt, apiKey) {
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model,
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -678,21 +680,37 @@ async function callOpenAI(prompt, apiKey) {
 }
 
 function formatSummaryResponse(text) {
-  // Convert markdown-style lists to HTML
+  // Convert markdown to HTML
   let formatted = escapeHtml(text);
+
+  // Convert headers
+  formatted = formatted.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+  formatted = formatted.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+  formatted = formatted.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+
+  // Convert bold text
+  formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
   // Convert bullet points
   formatted = formatted.replace(/^[\-\*]\s+(.+)$/gm, '<li>$1</li>');
-  formatted = formatted.replace(/(<li>.*<\/li>\n?)+/gs, '<ul class="summary-bullets">$&</ul>');
+
+  // Wrap consecutive list items in ul
+  formatted = formatted.replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, (match) => {
+    return `<ul class="summary-bullets">${match}</ul>`;
+  });
 
   // Convert numbered lists
   formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
 
-  // Convert line breaks to paragraphs
-  formatted = formatted.split('\n\n').map(p => {
-    if (p.includes('<ul') || p.includes('<li')) return p;
-    return `<p>${p}</p>`;
-  }).join('');
+  // Clean up extra newlines and wrap remaining text in paragraphs
+  formatted = formatted.split(/\n\n+/).map(p => {
+    p = p.trim();
+    if (!p) return '';
+    if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<li')) return p;
+    // Don't wrap if it's already a block element
+    if (p.includes('<ul') || p.includes('<h3') || p.includes('<h4')) return p;
+    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+  }).filter(Boolean).join('\n');
 
   return formatted;
 }
