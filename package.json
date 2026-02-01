@@ -1,0 +1,22 @@
+{
+  "name": "my-firefox-frontpage",
+  "version": "1.0.0",
+  "description": "A custom new tab page with RSS news feeds",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:strict": "eslint . --max-warnings 0",
+    "build": "web-ext build --config web-ext-config.cjs --source-dir . --artifacts-dir dist --overwrite-dest",
+    "start": "web-ext run --config web-ext-config.cjs --source-dir .",
+    "validate": "web-ext lint --config web-ext-config.cjs --source-dir . --warnings-as-errors=false"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-plugin-no-unsanitized": "^4.0.2",
+    "web-ext": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
