@@ -1656,8 +1656,8 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let usedWebSearch = false;
 
-   
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1674,9 +1674,19 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
           const parsed = JSON.parse(data);
           const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (text) onChunk(text);
+          // Check if web search/grounding was used
+          if (parsed.candidates?.[0]?.groundingMetadata?.searchEntryPoint ||
+              parsed.candidates?.[0]?.groundingMetadata?.groundingChunks?.length > 0) {
+            usedWebSearch = true;
+          }
         } catch { /* ignore parse errors */ }
       }
     }
+  }
+
+  // Append web search indicator if grounding was used
+  if (usedWebSearch) {
+    onChunk('\n\n🔍 *Used web search*');
   }
 }
 
