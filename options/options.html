@@ -73,7 +73,31 @@
     </section>
 
     <section class="section">
-      <h2>Backup & Restore</h2>
+      <h2>Auto Backup</h2>
+      <p class="section-desc">Automatically save backups to your Downloads folder. Sync the folder with cloud storage for cross-device sync.</p>
+      <div class="auto-backup-form">
+        <div class="form-row">
+          <div class="form-group flex-grow">
+            <label for="backup-folder">Folder Name (inside Downloads)</label>
+            <input type="text" id="backup-folder" placeholder="firefox-frontpage-backup">
+          </div>
+          <div class="form-group">
+            <label for="auto-backup-toggle">Auto Backup</label>
+            <label class="toggle">
+              <input type="checkbox" id="auto-backup-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="backup-status">
+          <span id="last-backup-time">Never backed up</span>
+          <button id="backup-now-btn" class="btn btn-secondary">Backup Now</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Manual Backup & Restore</h2>
       <p class="section-desc">Export your data to restore after reinstall or sync across devices.</p>
       <div class="backup-options">
         <div class="backup-item">

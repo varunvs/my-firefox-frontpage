@@ -211,6 +211,152 @@ document.getElementById('save-api-btn').addEventListener('click', async () => {
   showMessage('API settings saved (encrypted)', 'success');
 });
 
+// Auto Backup Settings
+const AUTO_BACKUP_KEY = 'autoBackupSettings';
+
+async function getAutoBackupSettings() {
+  const result = await browser.storage.local.get(AUTO_BACKUP_KEY);
+  return result[AUTO_BACKUP_KEY] || {
+    enabled: false,
+    folder: 'firefox-frontpage-backup',
+    lastBackup: null
+  };
+}
+
+async function saveAutoBackupSettings(settings) {
+  await browser.storage.local.set({ [AUTO_BACKUP_KEY]: settings });
+}
+
+async function loadAutoBackupUI() {
+  const settings = await getAutoBackupSettings();
+  document.getElementById('backup-folder').value = settings.folder || 'firefox-frontpage-backup';
+  document.getElementById('auto-backup-toggle').checked = settings.enabled;
+  updateLastBackupTime(settings.lastBackup);
+}
+
+function updateLastBackupTime(timestamp) {
+  const el = document.getElementById('last-backup-time');
+  if (timestamp) {
+    const date = new Date(timestamp);
+    const relative = getRelativeTime(date);
+    el.textContent = `Last backup: ${relative}`;
+    el.title = date.toLocaleString();
+  } else {
+    el.textContent = 'Never backed up';
+  }
+}
+
+function getRelativeTime(date) {
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
+async function performBackup() {
+  const settings = await getAutoBackupSettings();
+  const folder = settings.folder || 'firefox-frontpage-backup';
+
+  // Gather all data
+  const data = {};
+  const storage = await browser.storage.local.get(null);
+
+  for (const key of Object.values(STORAGE_KEYS)) {
+    if (storage[key] !== undefined) {
+      data[key] = storage[key];
+    }
+  }
+
+  data._meta = {
+    exportedAt: new Date().toISOString(),
+    version: '1.0',
+    auto: true
+  };
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    // Use downloads API to save to specific folder
+    await browser.downloads.download({
+      url: url,
+      filename: `${folder}/backup.json`,
+      saveAs: false,
+      conflictAction: 'overwrite'
+    });
+
+    // Update last backup time
+    settings.lastBackup = Date.now();
+    await saveAutoBackupSettings(settings);
+    updateLastBackupTime(settings.lastBackup);
+
+    showMessage('Backup saved', 'success');
+  } catch (err) {
+    showMessage(`Backup failed: ${err.message}`, 'error');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// Auto backup on data changes
+let backupTimeout = null;
+async function scheduleAutoBackup() {
+  const settings = await getAutoBackupSettings();
+  if (!settings.enabled) return;
+
+  // Debounce - wait 5 seconds after last change before backing up
+  if (backupTimeout) clearTimeout(backupTimeout);
+  backupTimeout = setTimeout(async () => {
+    await performBackup();
+  }, 5000);
+}
+
+// Listen for storage changes to trigger auto backup
+browser.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== 'local') return;
+
+  // Don't trigger backup for backup settings changes
+  if (changes[AUTO_BACKUP_KEY]) return;
+
+  // Check if any important data changed
+  const importantKeys = ['bookmarks', 'readHistory', 'summaryCache', 'feeds', 'feedOrder'];
+  const hasImportantChange = importantKeys.some(key => changes[key]);
+
+  if (hasImportantChange) {
+    scheduleAutoBackup();
+  }
+});
+
+document.getElementById('backup-folder').addEventListener('change', async (e) => {
+  const settings = await getAutoBackupSettings();
+  settings.folder = e.target.value.trim() || 'firefox-frontpage-backup';
+  await saveAutoBackupSettings(settings);
+});
+
+document.getElementById('auto-backup-toggle').addEventListener('change', async (e) => {
+  const settings = await getAutoBackupSettings();
+  settings.enabled = e.target.checked;
+  await saveAutoBackupSettings(settings);
+
+  if (settings.enabled) {
+    showMessage('Auto backup enabled', 'success');
+    // Do initial backup when enabled
+    performBackup();
+  } else {
+    showMessage('Auto backup disabled', 'success');
+  }
+});
+
+document.getElementById('backup-now-btn').addEventListener('click', performBackup);
+
 // Backup & Restore
 const STORAGE_KEYS = {
   feeds: 'feeds',
@@ -352,3 +498,4 @@ document.getElementById('export-summaries-btn').addEventListener('click', async 
 renderFeeds();
 loadApiSettings();
 updateBackupCounts();
+loadAutoBackupUI();
