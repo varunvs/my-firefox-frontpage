@@ -421,8 +421,8 @@ function renderFeedItem(item, readLinks, bookmarkedUrls, isHN) {
         </button>
         <button class="feed-item-btn feed-item-summary" data-url="${escapeHtml(item.link)}" data-title="${escapeHtml(item.title)}" title="AI Summary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
-            <path d="M17 4a2 2 0 0 0 0 4"/><path d="M19 2v6"/><path d="M16 5h6"/>
+            <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/>
+            <path d="M19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/>
           </svg>
         </button>
         ${isHN && item.commentsLink ? `<a href="${escapeHtml(item.commentsLink)}" class="feed-item-btn" target="_blank" rel="noopener noreferrer" title="View comments">
@@ -1889,8 +1889,8 @@ async function renderHistory() {
               </button>
               <button class="history-item-btn history-summary-btn" data-url="${escapeHtml(item.url)}" data-title="${escapeHtml(item.title || '')}" title="View summary">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1-8.313-12.454z"/>
-                  <path d="M17 4a2 2 0 0 0 0 4"/><path d="M19 2v6"/><path d="M16 5h6"/>
+                  <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/>
+                  <path d="M19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/>
                 </svg>
               </button>
             </div>
