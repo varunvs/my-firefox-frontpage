@@ -464,7 +464,7 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedT
   const displayItems = items.slice(0, INITIAL_ITEMS_COUNT);
   const hasMore = items.length > INITIAL_ITEMS_COUNT;
 
-  section.innerHTML = `
+  SafeHTML.setHTML(section, `
     <div class="feed-header">
       <span class="drag-handle">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -480,7 +480,7 @@ async function renderFeedSection(feed, items, readLinks, bookmarkedUrls, hnFeedT
       ${displayItems.map(item => renderFeedItem(item, readLinks, bookmarkedUrls, isHN)).join('')}
     </div>
     ${hasMore ? `<button class="load-more-btn" data-feed-id="${feed.id}">Load more</button>` : ''}
-  `;
+  `);
 
   // Track link clicks
   section.querySelectorAll('.feed-item').forEach(link => {
@@ -562,7 +562,7 @@ function loadMoreItems(feedId, section, isHN) {
   const feedItemsContainer = section.querySelector('.feed-items');
   newItems.forEach(item => {
     const itemHtml = renderFeedItem(item, readLinks, bookmarkedUrls, isHN);
-    feedItemsContainer.insertAdjacentHTML('beforeend', itemHtml);
+    SafeHTML.insertHTML(feedItemsContainer, 'beforeend', itemHtml);
   });
 
   // Attach event handlers to new items
@@ -631,7 +631,7 @@ function renderError(feed) {
   const color = feed.color || '#6366f1';
   section.style.cssText = generateColorVars(color);
 
-  section.innerHTML = `
+  SafeHTML.setHTML(section, `
     <div class="feed-header">
       <span class="drag-handle">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -645,7 +645,7 @@ function renderError(feed) {
     <div class="feed-items">
       <div class="error">Failed to load feed</div>
     </div>
-  `;
+  `);
 
   setupDragAndDrop(section);
   return section;
@@ -719,7 +719,7 @@ async function saveCurrentOrder() {
 
 async function loadFeeds(forceRefresh = false) {
   const container = document.getElementById('feeds');
-  container.innerHTML = '<div class="loading" aria-live="polite">Loading feeds...</div>';
+  SafeHTML.setHTML(container, '<div class="loading" aria-live="polite">Loading feeds...</div>');
 
   let feeds = await getFeeds();
   const savedOrder = await getFeedOrder();
@@ -751,16 +751,16 @@ async function loadFeeds(forceRefresh = false) {
   }
 
   if (feeds.length === 0) {
-    container.innerHTML = `
+    SafeHTML.setHTML(container, `
       <div class="empty-state">
         <p>No feeds configured</p>
         <p>Click the settings button to add feeds</p>
       </div>
-    `;
+    `);
     return;
   }
 
-  container.innerHTML = '';
+  container.textContent = '';
 
   // Load read links and bookmarks for marking
   const readLinks = await getReadLinks();
@@ -818,7 +818,7 @@ async function loadQuote(forceNew = false) {
 
 function displayQuote(quote) {
   const quoteEl = document.getElementById('quote');
-  quoteEl.innerHTML = `"${escapeHtml(quote.text)}"<span class="quote-author">— ${escapeHtml(quote.author)}</span>`;
+  SafeHTML.setHTML(quoteEl, `"${escapeHtml(quote.text)}"<span class="quote-author">— ${escapeHtml(quote.author)}</span>`);
 }
 
 // Modal functionality with Reader Mode
@@ -838,7 +838,7 @@ async function openModal(url, title) {
   readerLoading.classList.remove('hidden');
   readerLoading.textContent = 'Loading article...';
   readerContent.classList.add('hidden');
-  readerContent.innerHTML = '';
+  readerContent.textContent = '';
 
   try {
     // Fetch the article
@@ -870,7 +870,7 @@ async function openModal(url, title) {
     const article = reader.parse();
 
     if (article && article.content) {
-      readerContent.innerHTML = article.content;
+      SafeHTML.setHTML(readerContent, article.content);
       readerContent.classList.remove('hidden');
       readerLoading.classList.add('hidden');
 
@@ -883,18 +883,18 @@ async function openModal(url, title) {
       throw new Error('Could not parse article');
     }
   } catch {
-    readerLoading.innerHTML = `
+    SafeHTML.setHTML(readerLoading, `
       <div class="reader-error">
         <p>Could not load reader view</p>
         <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open in new tab →</a></p>
       </div>
-    `;
+    `);
   }
 }
 
 function closeModal() {
   modalOverlay.classList.remove('active');
-  readerContent.innerHTML = '';
+  readerContent.textContent = '';
   document.body.style.overflow = '';
 }
 
@@ -987,8 +987,8 @@ async function openSummary(url, title) {
 
   summaryLoading.classList.remove('hidden');
   summaryContent.classList.add('hidden');
-  summaryContent.innerHTML = '';
-  chatMessages.innerHTML = '';
+  summaryContent.textContent = '';
+  chatMessages.textContent = '';
 
   // Reset progress bar
   resetSummaryProgress();
@@ -999,11 +999,11 @@ async function openSummary(url, title) {
   // Check cache first
   const cached = await getCachedSummary(url);
   if (cached) {
-    summaryContent.innerHTML = `
+    SafeHTML.setHTML(summaryContent, `
       <h2>Key Points</h2>
       <div class="summary-text">${cached.summary}</div>
       <p class="summary-cached">Cached summary</p>
-    `;
+    `);
     summaryContent.classList.remove('hidden');
     summaryLoading.classList.add('hidden');
 
@@ -1025,12 +1025,12 @@ async function openSummary(url, title) {
   if (!groqKey && !geminiKey && !anthropicKey && !openaiKey) {
     summaryLoading.classList.add('hidden');
     summaryContent.classList.remove('hidden');
-    summaryContent.innerHTML = `
+    SafeHTML.setHTML(summaryContent, `
       <div class="summary-no-key">
         <p>No API key configured. Please add an API key in settings.</p>
         <button onclick="browser.runtime.openOptionsPage(); closeSummary();">Open Settings</button>
       </div>
-    `;
+    `);
     return;
   }
 
@@ -1068,10 +1068,10 @@ async function openSummary(url, title) {
     updateSummaryProgress(3, 85);
 
     // Prepare streaming UI (but keep hidden until first chunk)
-    summaryContent.innerHTML = `
+    SafeHTML.setHTML(summaryContent, `
       <h2>Key Points</h2>
       <div class="summary-text" id="summary-stream"></div>
-    `;
+    `);
 
     const streamContainer = document.getElementById('summary-stream');
     let fullText = '';
@@ -1093,7 +1093,7 @@ async function openSummary(url, title) {
         pendingText = pendingText.substring(charsToAdd);
 
         // Render with cursor
-        streamContainer.innerHTML = formatSummaryResponse(displayedText) + '<span class="streaming-cursor"></span>';
+        SafeHTML.setHTML(streamContainer, formatSummaryResponse(displayedText) + '<span class="streaming-cursor"></span>');
 
         // Auto-scroll
         if (modalReader) {
@@ -1128,12 +1128,12 @@ async function openSummary(url, title) {
       const charsToAdd = Math.min(5, pendingText.length);
       displayedText += pendingText.substring(0, charsToAdd);
       pendingText = pendingText.substring(charsToAdd);
-      streamContainer.innerHTML = formatSummaryResponse(displayedText) + '<span class="streaming-cursor"></span>';
+      SafeHTML.setHTML(streamContainer, formatSummaryResponse(displayedText) + '<span class="streaming-cursor"></span>');
       await new Promise(r => setTimeout(r, typeSpeed));
     }
 
     // Remove cursor and mark streaming as complete
-    streamContainer.innerHTML = formatSummaryResponse(fullText);
+    SafeHTML.setHTML(streamContainer, formatSummaryResponse(fullText));
     streamContainer.classList.add('done');
 
     // Cache the final summary
@@ -1142,12 +1142,12 @@ async function openSummary(url, title) {
   } catch (err) {
     summaryLoading.classList.add('hidden');
     summaryContent.classList.remove('hidden');
-    summaryContent.innerHTML = `
+    SafeHTML.setHTML(summaryContent, `
       <div class="summary-error">
         <p>Could not generate summary: ${escapeHtml(err.message)}</p>
         <p><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Open article in new tab →</a></p>
       </div>
-    `;
+    `);
   }
 }
 
@@ -1425,8 +1425,8 @@ function formatSummaryResponse(text) {
 
 function closeSummary() {
   summaryOverlay.classList.remove('active');
-  summaryContent.innerHTML = '';
-  chatMessages.innerHTML = '';
+  summaryContent.textContent = '';
+  chatMessages.textContent = '';
   chatInput.value = '';
   currentArticleContext = { content: '', title: '', url: '', chatHistory: [] };
   document.body.style.overflow = '';
@@ -1436,7 +1436,7 @@ document.getElementById('summary-close').addEventListener('click', closeSummary)
 
 // Render saved chat history
 function renderChatHistory(history) {
-  chatMessages.innerHTML = '';
+  chatMessages.textContent = '';
   for (let i = 0; i < history.length; i += 2) {
     const userMsg = history[i];
     const aiMsg = history[i + 1];
@@ -1444,20 +1444,20 @@ function renderChatHistory(history) {
     if (userMsg && userMsg.role === 'user') {
       const userMsgEl = document.createElement('div');
       userMsgEl.className = 'chat-message chat-message-user';
-      userMsgEl.innerHTML = `
+      SafeHTML.setHTML(userMsgEl, `
         <div class="chat-avatar">You</div>
         <div class="chat-bubble">${escapeHtml(userMsg.content)}</div>
-      `;
+      `);
       chatMessages.appendChild(userMsgEl);
     }
 
     if (aiMsg && aiMsg.role === 'assistant') {
       const aiMsgEl = document.createElement('div');
       aiMsgEl.className = 'chat-message chat-message-ai';
-      aiMsgEl.innerHTML = `
+      SafeHTML.setHTML(aiMsgEl, `
         <div class="chat-avatar">AI</div>
         <div class="chat-bubble">${formatSummaryResponse(aiMsg.content)}</div>
-      `;
+      `);
       chatMessages.appendChild(aiMsgEl);
     }
   }
@@ -1484,21 +1484,21 @@ async function sendChatMessage() {
   // Add user message to chat
   const userMsgEl = document.createElement('div');
   userMsgEl.className = 'chat-message chat-message-user';
-  userMsgEl.innerHTML = `
+  SafeHTML.setHTML(userMsgEl, `
     <div class="chat-avatar">You</div>
     <div class="chat-bubble">${escapeHtml(question)}</div>
-  `;
+  `);
   chatMessages.appendChild(userMsgEl);
 
   // Add AI response placeholder with typing indicator
   const aiMsgEl = document.createElement('div');
   aiMsgEl.className = 'chat-message chat-message-ai';
-  aiMsgEl.innerHTML = `
+  SafeHTML.setHTML(aiMsgEl, `
     <div class="chat-avatar">AI</div>
     <div class="chat-bubble">
       <div class="chat-typing"><span></span><span></span><span></span></div>
     </div>
-  `;
+  `);
   chatMessages.appendChild(aiMsgEl);
   const aiBubble = aiMsgEl.querySelector('.chat-bubble');
 
@@ -1515,7 +1515,7 @@ async function sendChatMessage() {
     // Generate response with streaming
     await generateChatResponse(settings, (chunk) => {
       fullResponse += chunk;
-      aiBubble.innerHTML = formatSummaryResponse(fullResponse);
+      SafeHTML.setHTML(aiBubble, formatSummaryResponse(fullResponse));
       modalContent.scrollTop = modalContent.scrollHeight;
     });
 
@@ -1526,7 +1526,7 @@ async function sendChatMessage() {
     await updateCachedChatHistory(currentArticleContext.url, currentArticleContext.chatHistory);
 
   } catch (err) {
-    aiBubble.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(err.message)}</span>`;
+    SafeHTML.setHTML(aiBubble, `<span style="color: #ef4444;">Error: ${escapeHtml(err.message)}</span>`);
     // Remove the failed user message from history
     currentArticleContext.chatHistory.pop();
   }
@@ -1914,7 +1914,7 @@ function formatTime(timestamp) {
 
 function stripHtml(html) {
   const div = document.createElement('div');
-  div.innerHTML = html;
+  SafeHTML.setHTML(div, html);
   return div.textContent || div.innerText || '';
 }
 
@@ -1943,12 +1943,12 @@ async function renderHistory() {
   });
 
   if (filtered.length === 0) {
-    historyList.innerHTML = `
+    SafeHTML.setHTML(historyList, `
       <div class="history-empty">
         <div class="history-empty-icon">${currentHistoryTab === 'history' ? '📚' : '🔖'}</div>
         <p>${searchQuery || dateFrom || dateTo ? 'No matches found' : (currentHistoryTab === 'history' ? 'No history yet' : 'No bookmarks yet')}</p>
       </div>
-    `;
+    `);
     return;
   }
 
@@ -1960,7 +1960,7 @@ async function renderHistory() {
     groups[groupKey].push(item);
   });
 
-  historyList.innerHTML = Object.entries(groups).map(([date, items]) => `
+  SafeHTML.setHTML(historyList, Object.entries(groups).map(([date, items]) => `
     <div class="history-date-group">
       <div class="history-date-header">${date}</div>
       ${items.map(item => {
@@ -1994,7 +1994,7 @@ async function renderHistory() {
         `;
       }).join('')}
     </div>
-  `).join('');
+  `).join(''));
 
   // Add event listeners
   historyList.querySelectorAll('.history-bookmark-btn').forEach(btn => {
@@ -2252,7 +2252,7 @@ document.getElementById('restore-file-input').addEventListener('change', async (
     // Show success message
     const restoreContent = document.querySelector('.restore-content');
     if (restoreContent) {
-      restoreContent.innerHTML = `
+      SafeHTML.setHTML(restoreContent, `
         <div class="restore-icon" style="color: #22c55e;">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -2260,8 +2260,8 @@ document.getElementById('restore-file-input').addEventListener('change', async (
           </svg>
         </div>
         <h2>Restored & Merged!</h2>
-        <p>${counts.join(', ') || 'Data restored'}</p>
-      `;
+        <p>${escapeHtml(counts.join(', ') || 'Data restored')}</p>
+      `);
       document.getElementById('restore-overlay').classList.add('active');
       setTimeout(closeRestorePrompt, 2000);
     }

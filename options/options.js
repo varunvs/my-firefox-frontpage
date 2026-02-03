@@ -38,11 +38,11 @@ async function renderFeeds() {
   const container = document.getElementById('feeds-list');
 
   if (feeds.length === 0) {
-    container.innerHTML = '<div class="empty-state">No feeds configured. Add one below!</div>';
+    SafeHTML.setHTML(container, '<div class="empty-state">No feeds configured. Add one below!</div>');
     return;
   }
 
-  container.innerHTML = feeds.map((feed) => `
+  SafeHTML.setHTML(container, feeds.map((feed) => `
     <div class="feed-item" data-id="${feed.id}">
       <span class="feed-color" style="background: ${feed.color || '#6366f1'}"></span>
       <div class="feed-info">
@@ -52,7 +52,7 @@ async function renderFeeds() {
       <input type="color" class="color-picker" data-id="${feed.id}" value="${feed.color || '#6366f1'}" title="Change color">
       <button class="btn-delete" data-id="${feed.id}">Delete</button>
     </div>
-  `).join('');
+  `).join(''));
 
   container.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', async (e) => {
