@@ -93,8 +93,17 @@
       <div class="modal-content">
         <div id="summary-reader" class="modal-reader">
           <div id="summary-loading" class="reader-loading">
-            <div class="summary-spinner"></div>
-            <span>Generating summary...</span>
+            <div class="summary-progress-container">
+              <div class="summary-progress-bar">
+                <div class="summary-progress-fill"></div>
+                <div class="summary-progress-shimmer"></div>
+              </div>
+              <div class="summary-progress-steps">
+                <span class="progress-step active" data-step="1">Fetching article</span>
+                <span class="progress-step" data-step="2">Analyzing content</span>
+                <span class="progress-step" data-step="3">Generating summary</span>
+              </div>
+            </div>
           </div>
           <div id="summary-chat" class="summary-chat">
             <article id="summary-content" class="reader-content summary-content"></article>

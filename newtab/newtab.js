@@ -913,6 +913,40 @@ const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
 
+// Progress bar helpers
+function updateSummaryProgress(step, percent) {
+  const progressFill = summaryLoading.querySelector('.summary-progress-fill');
+  const steps = summaryLoading.querySelectorAll('.progress-step');
+
+  if (progressFill) {
+    progressFill.style.width = `${percent}%`;
+  }
+
+  steps.forEach((s, i) => {
+    const stepNum = i + 1;
+    s.classList.remove('active', 'completed');
+    if (stepNum < step) {
+      s.classList.add('completed');
+    } else if (stepNum === step) {
+      s.classList.add('active');
+    }
+  });
+}
+
+function resetSummaryProgress() {
+  const progressFill = summaryLoading.querySelector('.summary-progress-fill');
+  const steps = summaryLoading.querySelectorAll('.progress-step');
+
+  if (progressFill) {
+    progressFill.style.width = '0%';
+  }
+
+  steps.forEach((s, i) => {
+    s.classList.remove('active', 'completed');
+    if (i === 0) s.classList.add('active');
+  });
+}
+
 // Store current article context for chat
 let currentArticleContext = {
   content: '',
@@ -956,6 +990,9 @@ async function openSummary(url, title) {
   summaryContent.innerHTML = '';
   chatMessages.innerHTML = '';
 
+  // Reset progress bar
+  resetSummaryProgress();
+
   // Reset article context
   currentArticleContext = { content: '', title, url, chatHistory: [] };
 
@@ -998,11 +1035,16 @@ async function openSummary(url, title) {
   }
 
   try {
-    // First fetch the article content
+    // Step 1: Fetch article
+    updateSummaryProgress(1, 15);
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch article');
 
+    updateSummaryProgress(1, 33);
     const html = await response.text();
+
+    // Step 2: Analyze content
+    updateSummaryProgress(2, 50);
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
@@ -1013,6 +1055,8 @@ async function openSummary(url, title) {
       throw new Error('Could not parse article');
     }
 
+    updateSummaryProgress(2, 66);
+
     // Truncate content to avoid token limits
     const maxChars = 12000;
     const content = article.textContent.substring(0, maxChars);
@@ -1020,19 +1064,27 @@ async function openSummary(url, title) {
     // Store content for chat
     currentArticleContext.content = content;
 
-    // Set up streaming UI
+    // Step 3: Generate summary
+    updateSummaryProgress(3, 85);
+
+    // Prepare streaming UI (but keep hidden until first chunk)
     summaryContent.innerHTML = `
       <h2>Key Points</h2>
       <div class="summary-text" id="summary-stream"></div>
     `;
-    summaryContent.classList.remove('hidden');
-    summaryLoading.classList.add('hidden');
 
     const streamContainer = document.getElementById('summary-stream');
     let fullText = '';
+    let firstChunk = true;
 
     // Generate summary using AI with streaming
     await generateAISummaryStreaming(content, title, settings, (chunk) => {
+      // Hide progress bar and show content on first chunk
+      if (firstChunk) {
+        firstChunk = false;
+        summaryContent.classList.remove('hidden');
+        summaryLoading.classList.add('hidden');
+      }
       fullText += chunk;
       streamContainer.innerHTML = formatSummaryResponse(fullText);
     });
