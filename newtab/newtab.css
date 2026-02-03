@@ -761,10 +761,21 @@ body::before {
 .summary-modal .modal-reader {
   height: auto;
   min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .summary-content {
   padding: 0;
+  margin: 0;
+  max-width: 100%;
+  text-align: left;
+}
+
+/* Keep content left-aligned, not centered */
+.summary-modal .reader-content {
+  margin: 0;
+  max-width: 100%;
 }
 
 #summary-content.hidden {
@@ -1225,6 +1236,7 @@ body::before {
 #summary-stream {
   position: relative;
   overflow: hidden;
+  text-align: left;
 }
 
 /* Typewriter text reveal effect */
