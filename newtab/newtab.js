@@ -1077,19 +1077,63 @@ async function openSummary(url, title) {
     let fullText = '';
     let firstChunk = true;
 
-    // Generate summary using AI with streaming
+    // Generate summary using AI with streaming - typewriter effect
+    const modalReader = document.getElementById('summary-reader');
+    let displayedText = '';
+    let pendingText = '';
+    let typewriterInterval = null;
+    const typeSpeed = 12; // ms per character
+
+    // Typewriter function that processes pending text
+    function processTypewriter() {
+      if (pendingText.length > 0) {
+        // Add characters in small batches for smoother effect
+        const charsToAdd = Math.min(3, pendingText.length);
+        displayedText += pendingText.substring(0, charsToAdd);
+        pendingText = pendingText.substring(charsToAdd);
+
+        // Render with cursor
+        streamContainer.innerHTML = formatSummaryResponse(displayedText) + '<span class="streaming-cursor"></span>';
+
+        // Auto-scroll
+        if (modalReader) {
+          modalReader.scrollTo({
+            top: modalReader.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }
+    }
+
     await generateAISummaryStreaming(content, title, settings, (chunk) => {
       // Hide progress bar and show content on first chunk
       if (firstChunk) {
         firstChunk = false;
         summaryContent.classList.remove('hidden');
         summaryLoading.classList.add('hidden');
+        // Start typewriter interval
+        typewriterInterval = setInterval(processTypewriter, typeSpeed);
       }
       fullText += chunk;
-      streamContainer.innerHTML = formatSummaryResponse(fullText);
+      pendingText += chunk;
     });
 
-    // Mark streaming as complete (removes cursor)
+    // Finish any remaining text
+    if (typewriterInterval) {
+      clearInterval(typewriterInterval);
+    }
+
+    // Flush remaining pending text with animation
+    while (pendingText.length > 0) {
+      const charsToAdd = Math.min(5, pendingText.length);
+      displayedText += pendingText.substring(0, charsToAdd);
+      pendingText = pendingText.substring(charsToAdd);
+      streamContainer.innerHTML = formatSummaryResponse(displayedText) + '<span class="streaming-cursor"></span>';
+      await new Promise(r => setTimeout(r, typeSpeed));
+    }
+
+    // Remove cursor and mark streaming as complete
+    streamContainer.innerHTML = formatSummaryResponse(fullText);
     streamContainer.classList.add('done');
 
     // Cache the final summary

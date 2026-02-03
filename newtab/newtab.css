@@ -1221,21 +1221,81 @@ body::before {
   font-style: italic;
 }
 
-/* Streaming cursor */
-#summary-stream::after {
-  content: '▊';
-  animation: blink 0.7s infinite;
-  color: #818cf8;
+/* Fancy streaming effect - Typewriter with fade-in */
+#summary-stream {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Typewriter text reveal effect */
+#summary-stream:not(.done) {
+  animation: textReveal 0.1s ease-out;
+}
+
+@keyframes textReveal {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
+
+/* Glowing cursor */
+.streaming-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 1.1em;
+  background: linear-gradient(180deg, #818cf8, #c084fc, #f472b6);
+  border-radius: 2px;
   margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: cursorGlow 0.6s ease-in-out infinite;
+  box-shadow:
+    0 0 8px rgba(129, 140, 248, 0.9),
+    0 0 16px rgba(192, 132, 252, 0.6),
+    0 0 24px rgba(244, 114, 182, 0.4);
 }
 
-#summary-stream.done::after {
-  display: none;
+@keyframes cursorGlow {
+  0%, 100% {
+    opacity: 1;
+    transform: scaleY(1);
+    box-shadow:
+      0 0 8px rgba(129, 140, 248, 0.9),
+      0 0 16px rgba(192, 132, 252, 0.6),
+      0 0 24px rgba(244, 114, 182, 0.4);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scaleY(0.85);
+    box-shadow:
+      0 0 4px rgba(129, 140, 248, 0.4),
+      0 0 8px rgba(192, 132, 252, 0.2);
+  }
 }
 
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+/* Subtle glow on latest text */
+#summary-stream:not(.done) > *:last-child {
+  text-shadow: 0 0 20px rgba(129, 140, 248, 0.15);
+}
+
+/* Shimmer wave while streaming */
+#summary-stream:not(.done)::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(
+    to top,
+    rgba(129, 140, 248, 0.03),
+    transparent
+  );
+  pointer-events: none;
+  animation: bottomGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes bottomGlow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 /* Bookmark button */
