@@ -12,7 +12,7 @@
     "validate": "web-ext lint --config web-ext-config.cjs --source-dir . --warnings-as-errors=false"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^10.0.1",
     "eslint": "^9.39.2",
     "eslint-plugin-no-unsanitized": "^4.0.2",
     "globals": "^17.3.0",
