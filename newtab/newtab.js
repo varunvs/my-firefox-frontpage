@@ -1216,7 +1216,7 @@ async function callAnthropicStreaming(prompt, apiKey, model, onChunk) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 10000,
       stream: true,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -1264,7 +1264,7 @@ async function callOpenAIStreaming(prompt, apiKey, model, onChunk) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 10000,
       stream: true,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -1314,7 +1314,7 @@ async function callGroqStreaming(prompt, apiKey, model, onChunk) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 10000,
       stream: true,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -1366,7 +1366,7 @@ async function callGeminiStreaming(prompt, apiKey, model, onChunk) {
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          maxOutputTokens: 1024
+          maxOutputTokens: 10000
         }
       })
     }
@@ -1606,7 +1606,7 @@ async function callAnthropicChat(systemPrompt, apiKey, model, onChunk) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 10000,
       stream: true,
       system: systemPrompt,
       messages
@@ -1662,7 +1662,7 @@ async function callGroqChat(systemPrompt, apiKey, model, onChunk) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 10000,
       stream: true,
       messages
     })
@@ -1739,7 +1739,7 @@ async function callGeminiChat(systemPrompt, apiKey, model, onChunk) {
       body: JSON.stringify({
         contents,
         tools: [{ googleSearch: {} }], // Enable web search grounding
-        generationConfig: { maxOutputTokens: 1024 }
+        generationConfig: { maxOutputTokens: 10000 }
       })
     }
   );
@@ -1802,7 +1802,7 @@ async function callOpenAIChat(systemPrompt, apiKey, model, onChunk) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 1024,
+      max_tokens: 10000,
       stream: true,
       messages
     })
