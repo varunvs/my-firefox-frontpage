@@ -1,6 +1,6 @@
 /* global DOMPurify */
 
-const SafeHTML = {
+window.SafeHTML = {
   config: {
     ALLOWED_TAGS: [
       'a', 'abbr', 'article', 'aside', 'b', 'blockquote', 'br', 'button',

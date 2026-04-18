@@ -5,7 +5,7 @@ import noUnsanitized from 'eslint-plugin-no-unsanitized';
 export default [
   js.configs.recommended,
   {
-    ignores: ['dist/', 'node_modules/', 'newtab/readability.js']
+    ignores: ['dist/', 'node_modules/', 'newtab/readability.js', 'shared/purify.js', 'shared/marked.js']
   },
   {
     files: ['**/*.js'],
@@ -16,7 +16,9 @@ export default [
         ...globals.browser,
         ...globals.webextensions,
         Readability: 'readonly',
-        CryptoUtils: 'readonly'
+        CryptoUtils: 'readonly',
+        SafeHTML: 'readonly',
+        marked: 'readonly'
       }
     },
     plugins: {
